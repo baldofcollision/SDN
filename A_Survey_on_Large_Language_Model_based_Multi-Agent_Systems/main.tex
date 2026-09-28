@@ -1,0 +1,547 @@
+% !TeX program = xelatex
+% !TeX encoding = UTF-8
+
+\documentclass[UTF8,a4paper,12pt]{article}
+
+% 中文支持
+\usepackage[UTF8]{ctex}
+
+% 数学与符号支持
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{mathtools}
+
+% 图形与表格支持
+\usepackage{graphicx}
+\usepackage{booktabs,tabularx,multirow,multicol}
+\usepackage{wrapfig}
+
+% 排版与链接支持
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{cite}
+
+% 页面设置
+\geometry{a4paper, margin=2.5cm}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    pdftitle={基于大语言模型的多智能体系统综述},
+    pdfauthor={Mingjie Zhu et al.}
+}
+
+% 表格样式
+\usepackage{colortbl}
+\definecolor{LightBlue}{rgb}{0.9,0.95,1}
+\definecolor{HeaderColor}{rgb}{0.8,0.85,0.95}
+
+% 定义符号
+\def\yes{$\checkmark$}
+\def\no{--}
+
+\begin{document}
+
+% 标题
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    
+    {\Huge\bfseries 基于大语言模型的多智能体系统综述}\\[0.5cm]
+    {\LARGE\bfseries 范式、应用与挑战}\\[2cm]
+    
+    \Large
+    Mingjie Zhu, Mingcheng Li, Mingzhang Cui, Ziyun Qian, Yue Jiang,\\
+    Minghao Han, Mingyang Sun, Zizhi Chen, Yizhou Liu, Yang Liu,\\
+    Jinghang Han, Peng Zhai, Dingkang Yang, Lihua Zhang\\[1.5cm]
+    
+    \normalsize
+    \begin{minipage}[t]{0.45\textwidth}
+        \centering
+        复旦大学智能机器人与先进制造学院\\
+        弗西斯智能科技有限公司 (Fysics AI)
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.45\textwidth}
+        \centering
+        同济大学电子与信息工程学院
+    \end{minipage}\\[1cm]
+    
+    \texttt{\{dkyang20, lihuazhang\}@fudan.edu.cn}
+    
+    \vspace{2cm}
+    \Large{摘要}
+\end{titlepage}
+
+% 摘要
+\newpage
+\section*{摘要}
+\addcontentsline{toc}{section}{摘要}
+
+随着大语言模型（Large Language Model, LLM）的快速发展，人工智能正经历着从孤智能向协作式多智能体系统（Multi-Agent Systems, MAS）的范式转变。基于大语言模型的多智能体系统（LLM-MAS）通过模拟人类社会中的协作分工模式，有效克服了单智能体模型在处理复杂任务时固有的性能瓶颈。针对当前研究中的碎片化问题和缺乏统一分类体系的现状，本文提出了一个整合\textbf{结构（Structure）}、\textbf{交互（Interaction）}和\textbf{演化（Evolution）}三维度的分析框架。我们系统阐述了组织架构从静态预设到动态适应的演化逻辑，深入剖析了通信范式与集体决策的底层机制，并探索了通过提示重构、记忆整合和参数更新实现自我演化的路径。此外，我们将前沿应用分为三大领域：\textbf{``服务于人类的AI''（AI for Humans）}、\textbf{``服务于世界的AI''（AI for the World）}和\textbf{``服务于AI的AI''（AI for AI）}。最后，我们分析了幻觉传播与安全治理等关键挑战，为推动该领域迈向通用人工智能提供了明确的理论支撑和技术路线图。
+
+\textbf{关键词：} 计算与处理
+
+\textbf{发表信息：} 2026年2月20日发表 --- CC-BY 4.0 --- 预印本，未经同行评审，数据可能为初步数据
+
+\newpage
+
+% 1. 引言
+\section{引言}
+
+随着大语言模型（LLM）在理解和推理能力方面的长足进步，人工智能正从孤立的单智能体智能向协作式多智能体系统（MAS）转型。尽管单智能体模型具备广泛的能力，但仍受限于有限的上下文窗口，并且在长时序规划、复杂推理和跨领域知识整合方面存在单一视角带来的盲点。相比之下，基于大语言模型的多智能体系统（LLM-MAS）将任务分解为可管理的子问题，并分配给专业化的角色，通过互补的专业知识和交叉验证，系统能够超越单智能体的表现\textsuperscript{[Wang et al., 2025a]}。目前，LLM-MAS已在软件工程\textsuperscript{[Seo et al., 2025]}、社会模拟\textsuperscript{[Piao et al., 2025]}、科学研究\textsuperscript{[Weng et al., 2025a]}和图形用户界面（Graphical User Interface, GUI）交互\textsuperscript{[Zhou et al., 2025]}等复杂任务中展现出巨大的潜力和应用价值。这些进展也使LLM-MAS成为迈向更高级别通用人工智能（Artificial General Intelligence, AGI）的关键路径。
+
+当前多智能体系统的研究主要围绕三个核心维度展开：组织结构、交互机制和演化策略。早期探索主要依赖基于启发式的静态标准操作流程（Standard Operating Procedures, SOPs），通过确定性的线性流程来确保稳定性。复杂的长时序任务需要更强的适应性，近期研究反映了这一转变。系统设计正从固定编排向动态拓扑演进\textsuperscript{[Li et al., 2025b]}，从显式的自然语言交互向更高效的隐式向量通信演进\textsuperscript{[Fu et al., 2025]}，以及从纯提示词调优向基于学习和记忆的更新演进\textsuperscript{[Chen et al., 2025b]}。这些进展旨在克服传统架构的僵化性，从而增强系统在复杂环境中的适应性和泛化能力。
+
+LLM-MAS文献的爆发式增长已在特定应用领域产生了丰富的解决方案。要驾驭这一复杂格局，需要提炼出超越特定工具和框架的核心设计级范式。通过将这些多样化发展综合为统一视角，我们可以更好地理解通过关键的``结构-交互-演化''技术主线所贯穿的系统生命周期，为该领域奠定坚实的理论基础。为此，本文旨在提供一份关于LLM-MAS的综合综述。如图1所示，我们提出了一个整合``结构-交互-演化''的三维分析框架。该框架追溯了架构从静态设计到动态设计的演化历程，考察了通信范式和决策机制，并总结了系统如何通过提示词、记忆和参数进行迭代。除了技术实现层面，本文还着重分析了不同设计选择背后的权衡和适用场景，旨在为研究人员提供清晰的技术导航和理论支撑。
+
+本文其余部分组织如下：第2节详细阐述了多智能体协作的核心范式，从结构、交互和演化三个维度对其进行系统分类；第3节将前沿应用分为``服务于人类的AI''、``服务于世界的AI''和``服务于AI的AI''三类；第4节深入探讨了关键挑战与机遇，包括幻觉传播、通信效率、演化能力和安全治理；第5节总结全文。
+
+\begin{figure}[htbp]
+\centering
+\fbox{
+\begin{minipage}[c][4.5cm][c]{14cm}
+\vspace{0.5cm}
+\textbf{图1: LLM-MAS三维分析框架概览}\\[0.4cm]
+\small 本图阐释了本综述如何沿三个核心维度——结构、交互和演化——组织现有工作。\\[0.3cm]
+中部面板：组织结构、通信与决策机制、演化策略\\[0.2cm]
+顶部面板：服务于人类、服务于世界、服务于AI的应用分类\\[0.2cm]
+底部面板：跨越LLM-MAS整个生命周期的关键挑战与机遇\\[0.5cm]
+\vspace{0.3cm}
+\end{minipage}
+}
+\caption{LLM-MAS三维分析框架概览。本图阐释了本综述如何沿三个核心维度——结构、交互和演化——组织现有工作。中部面板总结了每个维度内的代表性范式，包括组织结构、通信与决策机制以及演化策略。顶部面板将前沿应用分为服务于人类、服务于世界和服务于AI三类，底部面板则突出了跨越LLM-MAS整个生命周期的关键挑战与机遇。}
+\label{fig:overview}
+\end{figure}
+
+% 2. 多智能体协作范式
+\newpage
+\section{多智能体协作范式：结构、交互与演化}
+
+\subsection{结构}
+
+本节聚焦于LLM-MAS中如何分配智能体角色以及如何设计协作结构。
+
+\subsubsection{预定义编排}
+
+预定义编排（Predefined Orchestration）指在部署前手动设置角色分工和交互拓扑。结构在执行过程中保持不变，以过程确定性换取稳定性和可复现性。因此，该范式适用于任务流程清晰、变化较少的标准化场景。
+
+\textbf{链式结构（Sequential）。} 该方法采用链式流水线结构来分解复杂任务，降低认知负荷。Hong等人\textsuperscript{[Hong et al., 2024]}建立了基于标准操作流程（SOP）的瀑布式范式，近期研究已将该范式扩展到科学研究等领域\textsuperscript{[Seo et al., 2025]}。尽管这种架构牺牲了一定的灵活性，但对于标准化任务，它确保了执行稳定性和可复现性。
+
+\textbf{层级结构（Hierarchical）。} 该方法采用树形拓扑构建``管理者-工作者''垂直层级，高层节点负责规划和协调低层专业智能体的并行工作。相关研究如Agashe等人\textsuperscript{[Agashe et al., 2025]}和Hegazy等人\textsuperscript{[Hegazy et al., 2025]}通过细粒度的垂直分工和层级仲裁，有效地缓解了复杂任务中的长时序规划和决策收敛困难。
+
+\textbf{集成结构（Ensemble）。} 集成结构利用多个智能体的并行推理来获取认知多样性，然后整合多视角响应以消除个体幻觉。Wang等人\textsuperscript{[Wang et al., 2025a]}和Tang等人\textsuperscript{[Tang et al., 2025]}的研究表明，通过整合异构开源模型，系统能够展现出强大的涌现集体智能，有效提升了科学推理等复杂任务中的鲁棒性和准确性。
+
+\textbf{点对点结构（Peer-to-Peer）。} 点对点结构移除调度型中心节点，形成去中心化的协作模式。Liang等人\textsuperscript{[Liang et al., 2024]}和Li等人\textsuperscript{[Li et al., 2025a]}提出的辩论式系统可视为点对点执行后的结果聚合。该范式在扩展时受通信开销限制；Qian等人\textsuperscript{[Qian et al., 2025]}揭示了全连接拓扑的瓶颈。
+
+\textbf{环境中介结构（Environment-Mediated）。} 环境中介结构用共享环境替代点对点通信，使智能体能够通过读写共享全局状态进行间接协作，从而降低拓扑复杂性。Piao等人\textsuperscript{[Piao et al., 2025]}通过社会环境驱动群体行为，而Zhang等人\textsuperscript{[Zhang et al., 2025a]}依赖系统状态和日志来协调动作。该范式具有强解耦性，但依赖于环境一致性。Zhang等人\textsuperscript{[Zhang et al., 2025b]}通过结构化共享记忆缓解了这个问题。
+
+\subsubsection{动态调度}
+
+动态调度（Dynamic Scheduling）通过运行时决策调整协作路径或结构。该范式通过在执行过程中按需分配计算和通信资源，缓解静态流程的冗余开销，从而提升系统效率和适应性。
+
+\textbf{条件路由（Conditional Routing）。} 条件路由根据任务语义或中间状态在运行时动态选择参与协作的智能体或工具，避免静态流程带来的冗余计算。其核心机制通常依赖向量相似度\textsuperscript{[Wu et al., 2025]}、规则触发\textsuperscript{[Rong et al., 2025]}或置信度评估来实现按需激活。该机制在效率和性能之间取得平衡，但对路由准确性高度敏感；错误的决策可能放大偏差。
+
+\textbf{动态图（Dynamic Graph）。} 动态图调度在协作过程中调整智能体之间的连接，以适应任务阶段和贡献差异，减少冗余交互。其核心在于根据实时性能重构通信结构，从而增强系统整体效率和可扩展性。Liu等人\textsuperscript{[Liu et al., 2024]}刻画了协作关系的动态演化，Zhang等人\textsuperscript{[Zhang et al., 2025d]}和Wang等人\textsuperscript{[Wang et al., 2025d]}通过结构剪枝和通信稀疏化降低开销，但这可能削弱全局信息整合能力。
+
+\subsubsection{自动构建}
+
+自动构建（Automated Construction）将LLM-MAS结构和协作流程设计转化为系统自生成问题，减少对人工编排的依赖，引入灵活性和稳定性之间的新权衡。
+
+\textbf{基于搜索的方法（Search-based）。} 此类方法将多智能体系统构建视为结构搜索问题，在预定义的拓扑空间内探索高效协作结构。其搜索策略包括离散结构的图搜索\textsuperscript{[Zhang et al., 2025e]}和连续概率分布的优化\textsuperscript{[Zhang et al., 2025c]}。这些方法可以减少人工设计偏差，但仍受搜索空间组合爆炸和高评估成本的限制。
+
+\textbf{基于代码生成的方法（Code Generation-based）。} 此类方法将MAS构建视为代码生成任务，利用LLM将自然语言需求映射为可执行程序。相关研究探索了端到端MAS代码生成\textsuperscript{[Ye et al., 2025b]}、基于有限状态机（Finite State Machine, FSM）的结构化建模\textsuperscript{[Zhang et al., 2025h]}和基于NuSMV的形式化验证\textsuperscript{[Agrawal et al., 2025]}。这些方法具有可解释性和可复现性等优点，但受限于代码的表达边界和模型的推理能力。
+
+\textbf{自组织动态编排（Self-Organizing Dynamic Orchestration）。} 此类方法面向开放环境和持续变化的任务场景，将MAS设计从离线构建问题转化为运行时治理问题。这些系统不仅能根据任务需求初始化角色配置和协作架构\textsuperscript{[Li et al., 2025b]}，还能根据执行反馈动态生成新角色、调整团队边界和演化交互拓扑\textsuperscript{[Wang et al., 2025b]}。必要时，它们甚至可以从外部环境引入新成员或工具\textsuperscript{[Chen et al., 2025a]}。此外，部分研究探索了可学习的在线编排策略\textsuperscript{[Dang et al., 2025]}以优化动态路径。虽然此类方法提升了适应性，但也对可控性和稳定性提出了挑战。
+
+% 2.2 交互
+\newpage
+\subsection{交互}
+
+本节聚焦于信息交换的模式和集体决策机制。
+
+\subsubsection{通信范式}
+
+本节系统地将LLM-MAS中的通信范式分为三类：自然语言、结构化语言和隐式向量。
+
+\textbf{自然语言通信（Natural Language Communication）。} 该范式以非结构化的自然语言作为智能体间信息交换的主要载体，利用语言模型的通用语义能力促进低门槛协作，但在大规模场景下受上下文窗口限制和表达歧义的约束。
+
+\begin{enumerate}
+    \item \textbf{全上下文对话流（Full-context dialogue flow）。} 此模式维护完整的交互历史以保持角色一致性和上下文连贯性，通常用于角色扮演和社会模拟等拟人化交互任务\textsuperscript{[Zhang et al., 2025g]}。
+    
+    \item \textbf{嵌入推理的通信（Reasoning-embedded communication）。} 此模式将发送者的推理逻辑、决策依据和逐步论证嵌入智能体间通信\textsuperscript{[Zhang et al., 2025f]}，使接收者能够验证逻辑推导路径。
+    
+    \item \textbf{压缩与摘要通信（Compressed and summarized communication）。} 此模式通过压缩通信内容\textsuperscript{[Wang et al., 2025a]}或将其凝练为共享记忆\textsuperscript{[Zhang et al., 2025b]}，减少长时序协作中的上下文和令牌开销。
+\end{enumerate}
+
+\textbf{结构化语言通信（Structured Language Communication）。} 该范式并不排除自然语言文本，而是通过预定义模式将语义锚定到结构化规则上。这使智能体能够在不完全依赖自然语言约定的情况下实现可控性和互操作性。
+
+\begin{enumerate}
+    \item \textbf{协作协议规范（Collaboration protocol specifications）。} 针对智能体间交互，这些规范旨在通过标准化的通信头和负载格式实现语义对齐。Liao等人\textsuperscript{[Liao et al., 2025]}引入了A2A协议，通过标准化的JSON格式明确约束智能体间通信的结构化任务分配、状态反馈和结果交付。
+    
+    \item \textbf{操作接口规范（Operation interface specifications）。} 针对智能体与工具或环境的交互，这些规范通过结构化指令和参数化动作空间将高层推理结果映射为可执行原子操作。相关研究通过统一工具调用和动作接口缓解自然语言歧义并降低执行不稳定性\textsuperscript{[Yamada et al., 2025; Agashe et al., 2025; Zhang et al., 2025a]}。
+\end{enumerate}
+
+\textbf{隐式向量通信（Implicit Vector Communication）。} 该范式绕过离散自然语言通道，在模型的潜在表示空间内交换语义信息，旨在缓解与符号编码-解码相关的信息损失和计算开销。理论研究已证明智能体间共享思维状态的可行性，揭示了无需离散符号中介即可实现跨模型表示空间的精确语义对齐\textsuperscript{[Zheng et al., 2025b]}。在工程实现方面，部分方法将交互降维到注意力机制的内部状态，通过跨模型KV-Cache复用和对齐实现高带宽、低延迟的隐式语义传输。该机制有效支持实时在线多智能体协作\textsuperscript{[Fu et al., 2025; Ye et al., 2025a]}。
+
+\subsubsection{集体决策}
+
+本节系统回顾了LLM-MAS中将分散判断整合为一致决策的四种代表性机制。
+
+\textbf{统计聚合（Statistical Aggregation）。} 统计聚合通过整合多个独立智能体的输出，平滑个体推理中的方差和幻觉风险。除基本的多数投票外，研究还引入了基于置信度的加权\textsuperscript{[Tang et al., 2025]}和一致性约束节点过滤\textsuperscript{[Zheng et al., 2025a]}，以进一步增强决策稳定性和抗噪声能力。
+
+\textbf{协作精化（Collaborative Refinement）。} 协作精化专注于建设性的迭代优化，通过智能体间的正反馈循环和互补分工，将初步结果精化为高质量成果。常见形式包括审查智能体对生成智能体提供多轮改进建议\textsuperscript{[Yamada et al., 2025]}、慢思考智能体回顾性校准快思考智能体的推理路径\textsuperscript{[Zhang et al., 2025f]}，以及建立额外的监督团队\textsuperscript{[Rong et al., 2025]}或演化团队\textsuperscript{[Hu et al., 2025b]}。
+
+\textbf{竞争辩论（Competitive Debate）。} 竞争辩论通过引入立场或角色不同的智能体，让冲突观点碰撞，促进正确判断的逐步形成，通常利用``以牙还牙''的对抗机制\textsuperscript{[Liang et al., 2024]}。这种方法不仅显著扩展了复杂任务中的推理边界\textsuperscript{[Li et al., 2025a]}，还解决了决策博弈中的潜在认知立场\textsuperscript{[Takano et al., 2025]}。此外，多维辩论架构\textsuperscript{[Feng et al., 2025]}已被证明能够通过多视角交叉质询消除个体偏见，在复杂任务中达成更高质量的共识。
+
+\textbf{最终裁决（Final Adjudication）。} 最终裁决通过不可协商的标准（如规则验证器或裁决智能体）对集体候选结果作出结论性判定。这种机制常见于基于形式化规范的验证\textsuperscript{[Agrawal et al., 2025]}、基于裁决者的审查\textsuperscript{[Bi et al., 2026]}和高风险领域的权威指南约束\textsuperscript{[Xiao et al., 2025]}。
+
+% 2.3 演化
+\newpage
+\subsection{演化}
+
+本节聚焦于LLM-MAS如何通过不同层次的演化机制持续增强协作能力。
+
+\subsubsection{提示级演化}
+
+与静态提示工程不同，提示级演化将自然语言提示视为可编辑的超参数，构建从执行反馈到更新的自动化闭环。针对不同的优化目标，演化机制呈现多种形式：相关研究将执行错误映射为文本级梯度信号，通过文本反向传播机制对智能体协作提示和行为指令进行定向更新\textsuperscript{[Hu et al., 2025b; Ma et al., 2025]}。Tian等人\textsuperscript{[Tian et al., 2025]}在系统构建阶段对角色定义进行多轮评估和重构。此外，部分研究利用蒙特卡洛搜索\textsuperscript{[Zhang et al., 2025e]}或自修复机制\textsuperscript{[Wang et al., 2025b]}实现系统架构层面的自适应演化。
+
+\subsubsection{记忆级演化}
+
+记忆级演化旨在模拟人类从经验中习得技能这一认知过程。通过动态积累、更新和优化记忆，系统持续增强多智能体协作或问题解决能力。Fan等人\textsuperscript{[Fan et al., 2025]}将执行反馈整合为可复用的长期记忆，区分任务内经验和跨任务约束以减少冗余试错。在操作执行层面，部分方法专注于积累操作经验和行为模式，支持智能体基于历史记录自适应优化动作\textsuperscript{[Wang et al., 2025c]}。此外，利用结构化共享记忆进行集体认知积累，通过层级或图结构将交互记录抽象为高层知识，以促进经验泛化和迁移\textsuperscript{[Zhang et al., 2025b; Rong et al., 2025]}。
+
+\subsubsection{参数级演化}
+
+参数级演化旨在通过梯度更新将协作能力内化为原生模型智能，从而克服提示工程在实践中的性能瓶颈。现有研究主要聚焦于基于强化学习的协同演化。针对协作中的信用分配和梯度阻塞挑战，Zhao等人\textsuperscript{[Zhao et al., 2025]}和Hong等人\textsuperscript{[Hong et al., 2025]}分别引入了Co-PPO和层级GRPO算法，在扁平架构和主从架构中实现协作策略更新。Park等人\textsuperscript{[Park et al., 2025]}和Chen等人\textsuperscript{[Chen et al., 2025b]}进一步基于验证器反馈和自我博弈构建无监督演化闭环，推动智能体间协作策略的自主涌现。
+
+% 3. 前沿应用
+\newpage
+\section{前沿应用}
+
+受多样化应用场景的驱动，本节系统回顾了LLM-MAS在三个互补维度上的前沿发展。
+
+\subsection{服务于人类的AI}
+
+本节聚焦于利用LLM-MAS模拟专家团队，促进复杂任务的分解与执行。
+
+\textbf{软件工程。} 针对软件工程中固有的复杂逻辑和长距离依赖挑战，LLM-MAS通过协作角色模拟（如架构师、程序员和测试员）分解任务。在代码生成方面，Seo等人\textsuperscript{[Seo et al., 2025]}实现了从研究论文到代码仓库的自动化转换。在缺陷修复方面，Li等人\textsuperscript{[Li et al., 2025a]}引入辩论机制进行多视角代码审查。在软件测试方面，Hu等人\textsuperscript{[Hu et al., 2025b]}构建自演化协作网络，通过反馈持续提升软件质量。
+
+\textbf{科学研究。} 科学研究面临跨学科整合、严格验证和高试错成本的挑战。LLM-MAS通常构建由首席研究员、执行者和审查者组成的数字研究团队，自动化从假设生成到成果产出的流水线。现有工作包括全流程自主研究智能体\textsuperscript{[Yamada et al., 2025]}、迭代假设验证\textsuperscript{[Weng et al., 2025a]}以及生物医学\textsuperscript{[Swanson et al., 2025]}和化学\textsuperscript{[Yang et al., 2025a]}领域的跨学科协作验证。
+
+\textbf{医疗健康。} 鉴于医学决策对准确性和证据可追溯性的要求，LLM-MAS通常模拟多学科团队（Multi-Disciplinary Team, MDT）范式。近期研究涉及多轮辩论机制解决诊断分歧\textsuperscript{[Xiao et al., 2025]}、临床影像推理\textsuperscript{[Liu et al., 2025]}、大规模医学推理样本合成\textsuperscript{[Sun et al., 2025]}以及多样医学任务中多智能体的系统性评估基准建立\textsuperscript{[Zhu et al., 2025]}。
+
+\textbf{图形用户界面交互。} 为解决单模型在规划和感知方面的局限，LLM-MAS通常采用将高层战略规划与低层操作执行解耦的协作范式。代表性工作包括结合视觉专家的桌面操控\textsuperscript{[Agashe et al., 2025]}、通过深度系统集成实现跨应用协同\textsuperscript{[Zhang et al., 2025a]}、利用检索增强的移动端长时序任务执行\textsuperscript{[Zhou et al., 2025]}以及基于自演化记忆的交互适应性增强\textsuperscript{[Wang et al., 2025c]}。
+
+\textbf{信息检索。} 针对海量异构数据和长尾查询的挑战，LLM-MAS将检索过程重构为意图驱动的深度探索。相关研究包括适应查询复杂度的动态编排\textsuperscript{[Li et al., 2025c]}、模态数据源互操作性\textsuperscript{[Liao et al., 2025]}、基于向量路由的专家匹配\textsuperscript{[Wu et al., 2025]}以及利用协作过滤增强信噪比的内容过滤\textsuperscript{[Chang et al., 2025]}。
+
+\textbf{内容创作。} 针对多模态生成中的语义对齐和时间同步困难，系统引入分层生成和监督机制，通过解析、插图和配音等专业角色确保全局一致性。近期研究包括可编辑海报生成\textsuperscript{[Pang et al., 2025]}、教育内容创作\textsuperscript{[Ji et al., 2025]}和沉浸式故事视频生成\textsuperscript{[Xu et al., 2025]}。此外，Rong等人\textsuperscript{[Rong et al., 2025]}采用双层架构保证多音频生成中的时空一致性。
+
+\begin{table}[htbp]
+\centering
+\caption{LLM-MAS代表性工作对比：涵盖结构、交互与演化维度。SA/CR/CD/FA分别表示统计聚合、协作精化、竞争辩论和最终裁决。}
+\label{tab:comparison}
+\tiny
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{p{2.4cm}p{1.5cm}p{2.2cm}p{1.8cm}ccccccp{1.2cm}c}
+\toprule
+\textbf{工作} & \textbf{模态} & \textbf{结构} & \textbf{通信范式} & \textbf{SA} & \textbf{CR} & \textbf{CD} & \textbf{FA} & \textbf{演化} & \textbf{开源} \\
+\midrule
+{[}Tian et al., 2025{]} & Text & 自动化（自组织） & 自然语言 & \no & \yes & \no & \no & Prompt & Yes \\
+{[}Agashe et al., 2025{]} & Text, Vision & 预定义（层级） & 结构化语言 & \no & \yes & \no & \no & --- & Yes \\
+{[}Wang et al., 2025d{]} & Text & 动态（动态图） & 自然语言 & \no & \yes & \no & \no & --- & Yes \\
+{[}Ma et al., 2025{]} & Text & 自动化（自组织） & 自然语言 & \yes & \yes & \no & \no & Prompt & --- \\
+{[}Liao et al., 2025{]} & T, V, A & 预定义（层级） & 结构化语言 & \no & \yes & \no & \no & --- & --- \\
+{[}Zhang et al., 2025d{]} & Text & 动态（动态图） & 自然语言 & \no & \yes & \yes & \no & --- & Yes \\
+{[}Piao et al., 2025{]} & Text & 预定义（环境中介） & 结构化语言 & \no & \no & \no & \no & Memory & Yes \\
+{[}Li et al., 2025b{]} & Text & 自动化（自组织） & 自然语言 & \yes & \yes & \no & \no & --- & Yes \\
+{[}Rong et al., 2025{]} & T, V, A & 动态（条件路由） & 结构化语言 & \no & \yes & \no & \no & --- & Yes \\
+{[}Zhang et al., 2025f{]} & Text & 预定义（层级） & 自然语言 & \no & \yes & \yes & \yes & --- & --- \\
+{[}Fu et al., 2025{]} & Text & 预定义（任意） & 隐式向量 & \no & \no & \no & \no & --- & Yes \\
+{[}Choi et al., 2025{]} & Text & 预定义（点对点） & 自然语言 & \yes & \no & \yes & \no & --- & Yes \\
+{[}Hu et al., 2025b{]} & Text & 自动化（自组织） & 自然语言 & \no & \yes & \no & \no & Prompt & Yes \\
+{[}Fan et al., 2025{]} & Text & 预定义（链式） & 自然语言 & \no & \yes & \no & \yes & Memory & --- \\
+{[}Zhang et al., 2025b{]} & Text & 预定义（环境中介） & 自然语言 & \no & \yes & \no & \no & Memory & Yes \\
+{[}Takano et al., 2025{]} & Text & 预定义（点对点） & 自然语言 & \no & \no & \yes & \no & --- & --- \\
+{[}Bi et al., 2026{]} & Text & 预定义（集成） & 自然语言 & \yes & \yes & \yes & \no & --- & --- \\
+{[}Ye et al., 2025a{]} & Text & 预定义（任意） & 隐式向量 & \no & \no & \no & \no & --- & Yes \\
+{[}Hong et al., 2025{]} & Text & 预定义（层级） & 结构化语言 & \no & \yes & \no & \no & Param. & Yes \\
+{[}Feng et al., 2025{]} & Text & 预定义（点对点） & 自然语言 & \no & \no & \yes & \no & --- & Yes \\
+{[}Zhang et al., 2025c{]} & Text & 自动化（搜索） & 自然语言 & \yes & \yes & \yes & \no & Prompt & Yes \\
+{[}Qian et al., 2025{]} & Text & 预定义（点对点） & 自然语言 & \no & \yes & \no & \no & --- & Yes \\
+{[}Park et al., 2025{]} & Text & 预定义（点对点） & 自然语言 & \yes & \yes & \no & \no & Param. & Yes \\
+{[}Ye et al., 2025b{]} & Text & 自动化（代码生成） & 自然语言 & \no & \yes & \no & \yes & --- & Yes \\
+{[}Wang et al., 2025b{]} & Text & 自动化（自组织） & 结构化语言 & \no & \yes & \no & \no & Prompt & Yes \\
+{[}Zhang et al., 2025h{]} & Text & 自动化（代码生成） & 自然语言 & \no & \yes & \no & \no & --- & Yes \\
+{[}Wang et al., 2025a{]} & Text & 预定义（集成） & 自然语言 & \no & \yes & \no & \no & --- & Yes \\
+{[}Wang et al., 2025c{]} & T, V & 预定义（层级） & 结构化语言 & \no & \yes & \no & \no & Memory & Yes \\
+{[}Xiao et al., 2025{]} & Text & 预定义（点对点） & 自然语言 & \no & \no & \yes & \yes & --- & --- \\
+{[}Chen et al., 2025b{]} & Text & 预定义（链式） & 自然语言 & \no & \yes & \no & \yes & Param. & Yes \\
+{[}Seo et al., 2025{]} & Text & 预定义（链式） & 结构化语言 & \no & \yes & \no & \no & --- & --- \\
+{[}Agrawal et al., 2025{]} & Text & 自动化（代码生成） & 自然语言 & \no & \yes & \no & \yes & --- & Yes \\
+{[}Zhao et al., 2025{]} & Text & 预定义（链式） & 自然语言 & \no & \yes & \no & \no & Param. & --- \\
+{[}Li et al., 2025a{]} & Text & 预定义（点对点） & 结构化语言 & \no & \no & \yes & \yes & --- & Yes \\
+{[}Yamada et al., 2025{]} & T, V & 预定义（层级） & 结构化语言 & \no & \yes & \no & \yes & Memory & Yes \\
+{[}Swanson et al., 2025{]} & Text & 预定义（层级） & 结构化语言 & \no & \yes & \no & \yes & Memory & Yes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{服务于世界的AI}
+
+本节聚焦于利用LLM-MAS模拟真实世界动态。通过构建虚拟社会、经济和物理环境，LLM-MAS促进复杂系统演化的推演和预测。
+
+\textbf{社会模拟。} 社会模拟旨在建模微观层面的群体交互和宏观层面的社会演化。LLM-MAS利用生成式沙盒赋予智能体类人的认知架构，从而实现高保真模拟。代表性研究从微观到宏观层面包括人际交互模拟\textsuperscript{[Zhang et al., 2025g]}、城市规模行为模拟\textsuperscript{[Piao et al., 2025]}以及法律与文明的自然演化\textsuperscript{[AL et al., 2024]}。
+
+\textbf{具身智能。} 为实现物理或虚拟环境中的感知、规划和协作行动，LLM-MAS建立了连接环境感知与协作决策的闭环范式。近期工作涵盖将协作转化为树搜索的非模拟奖励优化\textsuperscript{[Zu et al., 2025]}、开放世界中的因果规划\textsuperscript{[Chai et al., 2025]}以及基于自适应经验共享的分布式协作\textsuperscript{[Yang et al., 2025b]}。
+
+\textbf{经济分析。} 通过将异构智能体模拟为数字孪生，LLM-MAS从微观行为推导宏观政策以捕捉复杂经济动态。研究方向包括推导政策对经济系统的动态影响\textsuperscript{[Hao and Xie, 2025]}、分析竞争市场中的价格战与串通\textsuperscript{[Zhao et al., 2024]}、模拟营销策略\textsuperscript{[Chu et al., 2025]}以及探索推荐系统中的协作过滤\textsuperscript{[Xia et al., 2025]}。
+
+\textbf{心理学研究。} 心理学研究聚焦于剖析个体认知过程和微观心理机制。通过模拟元认知和社会交互，LLM-MAS揭示机器行为与人类心理之间的同构性。在社会认知领域，Zhang等人\textsuperscript{[Zhang et al., 2025g]}引入元认知架构模拟人类的心理理论和道德规范。在群体心理层面，Weng等人\textsuperscript{[Weng et al., 2025b]}揭示了群体交互中的从众倾向。此外，Luo和Laban\textsuperscript{[Luo and Laban, 2025]}建立了用于检测心理风险的多智能体评估框架。
+
+\subsection{服务于AI的AI}
+
+本节聚焦于利用多智能体协作增强LLM-MAS自身的基础能力。LLM-MAS可用于反馈自身的数据生成、自动化评估和安全治理等过程。
+
+\textbf{数据工程。} 针对高质量数据稀缺和标注成本高昂的挑战，LLM-MAS模拟人类工作流程进行数据生产和处理。在数据生成方面，Yue等人\textsuperscript{[Yue et al., 2025]}通过模拟师生交互合成指令数据，协作式多语言智能体已被证明在构建高质量代码指令集方面有效\textsuperscript{[Yang et al., 2025c]}。在自动化标注方面，Hegazy等人\textsuperscript{[Hegazy et al., 2025]}实现了企业级数据的高精度标注，Mu等人\textsuperscript{[Mu et al., 2026]}克服了低资源实体识别的瓶颈。此外，在数据结构化方面，Lu等人\textsuperscript{[Lu et al., 2025]}实现了知识图谱的自动化增强。
+
+\textbf{系统优化。} 与解决外部应用任务不同，系统优化旨在将智能体间交互反馈转化为优化信号，迭代升级架构、参数和通信模式。近期工作将其应用于多智能体系统构建\textsuperscript{[Tian et al., 2025]}、协作推理架构增强\textsuperscript{[Wang et al., 2025a]}、参数高效多模型训练\textsuperscript{[Zhao et al., 2025]}以及效率优化的通信冗余剪枝\textsuperscript{[Zhang et al., 2025d]}。
+
+\textbf{自动化评估。} LLM-MAS通过模拟人类辩论和审查的数字陪审团进行自动化评估。在通用领域，Vu等人\textsuperscript{[Vu et al., 2025]}模仿人类对生成内容的多维判断，JudgeBoard\textsuperscript{[Bi et al., 2026]}验证了小模型协作可实现高精度推理评估。在领域特定评估方面，Feng等人\textsuperscript{[Feng et al., 2025]}实现了机器翻译的细粒度评估。此外，相关研究引入自适应稳定性检测以优化评估成本与可靠性之间的权衡\textsuperscript{[Hu et al., 2025a]}。
+
+\textbf{安全防御。} 安全防御致力于通过集体协作机制增强系统鲁棒性和抗攻击能力。Kavathekar等人\textsuperscript{[Kavathekar et al., 2025]}建立了覆盖多样化攻击类别的综合基准，基于多智能体交互场景进行对抗风险测试。在主动防御方面，Miao等人\textsuperscript{[Miao et al., 2025]}提出了无监督恶意行为检测机制。此外，在系统韧性研究中，相关工作量化了共识安全的关键指标\textsuperscript{[Zheng et al., 2025a]}。
+
+\begin{table}[htbp]
+\centering
+\caption{LLM-MAS应用分类：按动机和领域划分。}
+\label{tab:applications}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{ll}
+\toprule
+\textbf{动机} & \textbf{领域与代表性工作} \\
+\midrule
+\textbf{服务于人类的AI} & \\
+& 软件工程 \textsuperscript{[Seo et al., 2025; Li et al., 2025a; Hu et al., 2025b]} \\
+& 科学研究 \textsuperscript{[Yamada et al., 2025; Weng et al., 2025a; Swanson et al., 2025; Yang et al., 2025a]} \\
+& 医疗健康 \textsuperscript{[Xiao et al., 2025; Liu et al., 2025; Sun et al., 2025; Zhu et al., 2025]} \\
+& GUI交互 \textsuperscript{[Agashe et al., 2025; Zhang et al., 2025a; Zhou et al., 2025; Wang et al., 2025c]} \\
+& 信息检索 \textsuperscript{[Li et al., 2025c; Liao et al., 2025; Wu et al., 2025; Chang et al., 2025]} \\
+& 内容创作 \textsuperscript{[Pang et al., 2025; Ji et al., 2025; Rong et al., 2025; Xu et al., 2025]} \\
+\midrule
+\textbf{服务于世界的AI} & \\
+& 社会模拟 \textsuperscript{[Piao et al., 2025; AL et al., 2024; Zhang et al., 2025g]} \\
+& 具身智能 \textsuperscript{[Zu et al., 2025; Chai et al., 2025; Yang et al., 2025b]} \\
+& 经济分析 \textsuperscript{[Hao and Xie, 2025; Zhao et al., 2024; Chu et al., 2025; Xia et al., 2025]} \\
+& 心理学研究 \textsuperscript{[Zhang et al., 2025g; Weng et al., 2025b; Luo and Laban, 2025]} \\
+\midrule
+\textbf{服务于AI的AI} & \\
+& 数据工程 \textsuperscript{[Yue et al., 2025; Yang et al., 2025c; Hegazy et al., 2025; Mu et al., 2026; Lu et al., 2025]} \\
+& 系统优化 \textsuperscript{[Tian et al., 2025; Wang et al., 2025a; Zhao et al., 2025; Zhang et al., 2025d]} \\
+& 自动化评估 \textsuperscript{[Vu et al., 2025; Bi et al., 2026; Feng et al., 2025; Hu et al., 2025a]} \\
+& 安全防御 \textsuperscript{[Kavathekar et al., 2025; Miao et al., 2025; Zheng et al., 2025a]} \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+% 4. 挑战与机遇
+\newpage
+\section{挑战与机遇}
+
+尽管LLM-MAS在复杂任务中展现出巨大潜力，但从实验环境到实际部署仍面临根本性挑战。我们识别出阻碍系统可扩展性和实际应用的问题与研究机遇。
+
+\subsection{幻觉传播控制}
+
+交互链中的个体幻觉容易放大为集体偏差，静态验证机制无法阻止动态协作中的错误积累。核心未来方向在于开发认知溯源技术和全生命周期可信验证框架。通过引入外部知识锚和动态纠错机制，我们可以实时拦截长链推理中错误的级联扩散。
+
+\subsection{通信效率}
+
+全连接自然语言通信面临扩展瓶颈\textsuperscript{[Qian et al., 2025]}。突破的关键在于向隐式向量表示转变，结合潜在空间语义交换与稀疏交互，大幅降低令牌消耗和解码延迟。构建此类高带宽架构是实现大规模智能体集群实时协作的核心路径。
+
+\subsection{演化能力}
+
+如表1所示，大多数当前LLM-MAS缺乏自我演化能力。核心机遇在于构建涵盖``提示-记忆-参数''三层次的演化机制。同时，前沿研究已开始探索自适应架构演化，使LLM-MAS能够根据任务需求动态重构协作拓扑和角色分工。
+
+\subsection{集体智能涌现}
+
+当前LLM-MAS缺乏预测或归因涌现行为的能力，难以区分有益涌现与有害偏离\textsuperscript{[Weng et al., 2025b]}。研究重点必须转向建立集体行为的数学表征和基于原理的指导机制。通过将涌现能力映射到人类价值，将不确定性转化为可控的生产力。
+
+\subsection{评估框架}
+
+当前评估在很大程度上局限于个体能力或最终输出，缺乏对协作过程的统一标准。迫切需要构建覆盖通信开销、策略一致性和鲁棒性的多维基准。这促进了评估范式从纯结果导向向过程与结果并重的转变，为异构系统比较提供客观依据。
+
+\subsection{安全治理}
+
+多智能体交互引入了新型风险，包括恶意指令的级联传播和涌现性串通。有效治理需要分布式防御机制和明确的责任框架。未来工作应强调集体价值对齐和端到端审计，确保去中心化决策系统的可信性和可控性。
+
+% 5. 结论
+\newpage
+\section{结论}
+
+本文构建了``结构-交互-演化''三维框架，系统回顾了LLM-MAS的核心范式和最新进展，同时分类了其广泛的应用前沿。尽管面临幻觉传播和安全治理等挑战，LLM-MAS仍是打破单智能体瓶颈、推动迈向通用人工智能的关键路径。本文旨在为未来架构创新和理论研究提供坚实的概念基础。
+
+% 参考文献
+\newpage
+\section*{参考文献}
+\addcontentsline{toc}{section}{参考文献}
+
+\medskip
+\small
+
+{[}Agashe et al., 2025{]} Saaket Agashe, Kyle Wong, et al. Agent s2: A compositional generalist-specialist framework for computer use agents. In COLM, 2025.
+
+{[}Agrawal et al., 2025{]} Rishabh Agrawal, Kaushik Tushar Ranade, et al. Specmas: A multi-agent system for self-verifying system generation via formal model checking. In NeurIPS, 2025.
+
+{[}AL et al., 2024{]} Altera. AL, Andrew Ahn, et al. Project sid: Many-agent simulations toward ai civilization. Arxiv, 2024.
+
+{[}Bi et al., 2026{]} Zhenyu Bi, Gaurav Srivastava, et al. Judgeboard: Benchmarking and enhancing small language models for reasoning evaluation. In AAAI, 2026.
+
+{[}Chai et al., 2025{]} Qi Chai, Zhang Zheng, et al. CausalMACE: Causality empowered multi-agents in Minecraft cooperative tasks. In EMNLP, 2025.
+
+{[}Chang et al., 2025{]} Chia-Yuan Chang, Zhimeng Jiang, et al. Mainrag: Multi-agent filtering retrieval-augmented generation. In ACL, 2025.
+
+{[}Chen et al., 2025a{]} Weize Chen, Ziming You, et al. Internet of agents: Weaving a web of heterogeneous agents for collaborative intelligence. In ICLR, 2025.
+
+{[}Chen et al., 2025b{]} Yixing Chen, Yiding Wang, et al. Multi-agent evolve: LLM self-improve through co-evolution. Arxiv, 2025.
+
+{[}Choi et al., 2025{]} Hyeong Kyu Choi, Jerry Zhu, et al. Debate or vote: Which yields better decisions in multi-agent large language models? In NeurIPS, 2025.
+
+{[}Chu et al., 2025{]} Man-Lin Chu, Lucian Terhorst, et al. LLM-based multi-agent system for simulating and analyzing marketing and consumer behavior. Arxiv, 2025.
+
+{[}Dang et al., 2025{]} Yufan Dang, Chen Qian, et al. Multi-agent collaboration via evolving orchestration. In NeurIPS, 2025.
+
+{[}Fan et al., 2025{]} Wenzhe Fan, Ning Yan, et al. Evomem: Improving multi-agent planning with dual-evolving memory. Arxiv, 2025.
+
+{[}Feng et al., 2025{]} Zhaopeng Feng, Jiayuan Su, et al. M-MAD: Multidimensional multi-agent debate for advanced machine translation evaluation. In ACL, 2025.
+
+{[}Fu et al., 2025{]} Tianyu Fu, Zihan Min, et al. Cache-to-cache: Direct semantic communication between large language models. Arxiv, 2025.
+
+{[}Hao and Xie, 2025{]} Yuzhi Hao, Danyang Xie. A multi-llm-agent-based framework for economic and public policy analysis. Arxiv, 2025.
+
+{[}Hegazy et al., 2025{]} Mahmood Hegazy, Aaron Rodrigues, et al. Mafa: A multi-agent framework for enterprise-scale annotation with configurable task adaptation. Arxiv, 2025.
+
+{[}Hong et al., 2024{]} Sirui Hong, Mingchen Zhuge, et al. MetaGPT: Meta programming for a multi-agent collaborative framework. In ICLR, 2024.
+
+{[}Hong et al., 2025{]} Haoyang Hong, Jiajun Yin, et al. Multi-agent deep research: Training multi-agent systems with m-grpo. Arxiv, 2025.
+
+{[}Hu et al., 2025a{]} Tianyu Hu, Zhen Tan, et al. Multi-agent debate for LLM judges with adaptive stability detection. In NeurIPS, 2025.
+
+{[}Hu et al., 2025b{]} Yue Hu, Yuzhu Cai, et al. Self-evolving multi-agent collaboration networks for software development. In ICLR, 2025.
+
+{[}Ji et al., 2025{]} Haonian Ji, Shi Qiu, et al. From eduvisbench to eduvisagent: A benchmark and multi-agent framework for reasoning-driven pedagogical visualization. Arxiv, 2025.
+
+{[}Kavathekar et al., 2025{]} Ishan Kavathekar, Hemang Jain, et al. Tamas: Benchmarking adversarial risks in multi-agent llm systems. Arxiv, 2025.
+
+{[}Li et al., 2025a{]} Han Li, Yuling Shi, et al. Swe-debate: Competitive multi-agent debate for software issue resolution. Arxiv, 2025.
+
+{[}Li et al., 2025b{]} Shiyuan Li, Yixin Liu, et al. Assemble your crew: Automatic multi-agent communication topology design via autoregressive graph generation. Arxiv, 2025.
+
+{[}Li et al., 2025c{]} Yuchen Li, Hengyi Cai, et al. Towards ai search paradigm. Arxiv, 2025.
+
+{[}Liang et al., 2024{]} Tian Liang, Zhiwei He, et al. Encouraging divergent thinking in large language models through multi-agent debate. In EMNLP, 2024.
+
+{[}Liao et al., 2025{]} Callie C. Liao, Duoduo Liao, et al. Agentmaster: A multi-agent conversational framework using a2a and mcp protocols for multimodal information retrieval and analysis. In EMNLP, 2025.
+
+{[}Liu et al., 2024{]} Zijun Liu, Yanzhe Zhang, et al. A dynamic LLM-powered agent network for task-oriented agent collaboration. In COLM, 2024.
+
+{[}Liu et al., 2025{]} Hongjun Liu, Yinghao Zhu, et al. Medmmv: A controllable multimodal multi-agent framework for reliable and verifiable clinical reasoning. Arxiv, 2025.
+
+{[}Lu et al., 2025{]} Yuxing Lu, Wei Wu, et al. KARMA: Leveraging multi-agent LLMs for automated knowledge graph enrichment. In NeurIPS, 2025.
+
+{[}Luo and Laban, 2025{]} Han Luo, Guy Laban. Dialogguard: Multi-agent psychosocial safety evaluation of sensitive llm responses. Arxiv, 2025.
+
+{[}Ma et al., 2025{]} Xiaowen Ma, Chenyang Lin, et al. Agentic neural networks: Self-evolving multi-agent systems via textual backpropagation. Arxiv, 2025.
+
+{[}Miao et al., 2025{]} Rui Miao, Yixin Liu, et al. Blindguard: Safeguarding llm-based multi-agent systems under unknown attacks. Arxiv, 2025.
+
+{[}Mu et al., 2026{]} Wenxuan Mu, Jinzhong Ning, et al. Kdr-agent: A multi-agent llm framework for multi-domain low-resource in-context ner via knowledge retrieval, disambiguation and reflective analysis. In AAAI, 2026.
+
+{[}Pang et al., 2025{]} Wei Pang, Kevin Qinghong Lin, et al. Paper2poster: Towards multimodal poster automation from scientific papers. In NeurIPS, 2025.
+
+{[}Park et al., 2025{]} Chanwoo Park, Seungju Han, et al. Maporl: Multi-agent post-co-training for collaborative large language models with reinforcement learning. In ACL, 2025.
+
+{[}Piao et al., 2025{]} Jinghua Piao, Yuwei Yan, et al. Agentsociety: Large-scale simulation of llm-driven generative agents advances understanding of human behaviors and society. Arxiv, 2025.
+
+{[}Qian et al., 2025{]} Chen Qian, Zihao Xie, et al. Scaling large language model-based multi-agent collaboration. In ICLR, 2025.
+
+{[}Rong et al., 2025{]} Yan Rong, Jinting Wang, et al. Audiogenie: A training-free multi-agent framework for diverse multimodality-to-multiaudio generation. In ACM MM, 2025.
+
+{[}Seo et al., 2025{]} Minju Seo, Jinheon Baek, et al. Paper2code: Automating code generation from scientific papers in machine learning. Arxiv, 2025.
+
+{[}Sun et al., 2025{]} Yu Sun, Xingyu Qian, et al. ReasonMed: A 370K multi-agent generated dataset for advancing medical reasoning. In EMNLP, 2025.
+
+{[}Swanson et al., 2025{]} Kyle W. Swanson, Wenjie Wu, et al. The virtual lab of ai agents designs new sars-cov-2 nanobodies. Nature, 2025.
+
+{[}Takano et al., 2025{]} Kaito Takano, Masanori Hirano, et al. Modeling hawkish-dovish latent beliefs in multi-agent debate-based llms for monetary policy decision classification. Arxiv, 2025.
+
+{[}Tang et al., 2025{]} Shengji Tang, Jianjian Cao, et al. Open-source llms collaboration beats closed-source llms: A scalable multi-agent system. Arxiv, 2025.
+
+{[}Tian et al., 2025{]} Chunhao Tian, Yutong Wang, et al. Agentinit: Initializing llm-based multi-agent systems via diversity and expertise orchestration for effective and efficient collaboration. In EMNLP, 2025.
+
+{[}Vu et al., 2025{]} Thanh Vu, Richi Nayak, et al. Agenteval: Generative agents as reliable proxies for human evaluation of ai-generated content. Arxiv, 2025.
+
+{[}Wang et al., 2025a{]} Junlin Wang, Jue WANG, et al. Mixture-of-agents enhances large language model capabilities. In ICLR, 2025.
+
+{[}Wang et al., 2025b{]} Kun Wang, Guibin Zhang, et al. Mas2: Self-generative, self-configuring, self-rectifying multi-agent systems. Arxiv, 2025.
+
+{[}Wang et al., 2025c{]} Zhenhailong Wang, Haiyang Xu, et al. Mobile-agent-e: Self-evolving mobile assistant for complex tasks. Arxiv, 2025.
+
+{[}Wang et al., 2025d{]} Zhexuan Wang, Yutong Wang, et al. Agent-Dropout: Dynamic agent elimination for token-efficient and high-performance LLM-based multi-agent collaboration. In ACL, 2025.
+
+{[}Weng et al., 2025a{]} Yixuan Weng, Minjun Zhu, et al. Deepscientist: Advancing frontier-pushing scientific findings progressively. Arxiv, 2025.
+
+{[}Weng et al., 2025b{]} Zhiyuan Weng, Guikun Chen, et al. Do as we do, not as you think: the conformity of large language models. In ICLR, 2025.
+
+{[}Wu et al., 2025{]} Feijie Wu, Zitao Li, et al. Talk to right specialists: Routing and planning in multi-agent system for question answering. Arxiv, 2025.
+
+{[}Xia et al., 2025{]} Yu Xia, Sungchul Kim, et al. Multi-agent collaborative filtering: Orchestrating users and items for agentic recommendations. Arxiv, 2025.
+
+{[}Xiao et al., 2025{]} Mengxi Xiao, Ben Liu, et al. Moodangels: A retrieval-augmented multi-agent framework for psychiatry diagnosis. In NeurIPS, 2025.
+
+{[}Xu et al., 2025{]} Xuenan Xu, Jiahao Mei, et al. Mm-storyagent: Immersive narrated storybook video generation with a multi-agent paradigm across text, image and audio. Arxiv, 2025.
+
+{[}Yamada et al., 2025{]} Yutaro Yamada, Robert Tjarko Lange, et al. The ai scientist-v2: Workshop-level automated scientific discovery via agentic tree search. Arxiv, 2025.
+
+{[}Yang et al., 2025a{]} Cheng Yang, Jiaxuan Lu, et al. From what to why: A multi-agent system for evidence-based chemical reaction condition reasoning. Arxiv, 2025.
+
+{[}Yang et al., 2025b{]} Hanqing Yang, Jingdi Chen, et al. Llm-powered decentralized generative agents with adaptive hierarchical knowledge graph for cooperative planning. Arxiv, 2025.
+
+{[}Yang et al., 2025c{]} Jian Yang, Wei Zhang, et al. Qwen2.5-xCoder: Multi-agent collaboration for multilingual code instruction tuning. In ACL, 2025.
+
+{[}Ye et al., 2025a{]} Hancheng Ye, Zhengqi Gao, et al. Kvcomm: Online cross-context kv-cache communication for efficient llm-based multi-agent systems. In NeurIPS, 2025.
+
+{[}Ye et al., 2025b{]} Rui Ye, Shuo Tang, et al. MAS-GPT: Training LLMs to build LLM-based multi-agent systems. In ICML, 2025.
+
+{[}Yue et al., 2025{]} Liang Yue, Yihong Tang, et al. Master: Enhancing large language model via multi-agent simulated teaching. CoRR, 2025.
+
+{[}Zhang et al., 2025a{]} Chaoyun Zhang, He Huang, et al. UFO2: The desktop agentos. Arxiv, 2025.
+
+{[}Zhang et al., 2025b{]} Guibin Zhang, Muxin Fu, et al. G-memory: Tracing hierarchical memory for multi-agent systems. In NeurIPS, 2025.
+
+{[}Zhang et al., 2025c{]} Guibin Zhang, Luyang Niu, et al. Multi-agent architecture search via agentic supernet. In ICML, 2025.
+
+{[}Zhang et al., 2025d{]} Guibin Zhang, Yanwei Yue, et al. Cut the crap: An economical communication pipeline for LLM-based multi-agent systems. In ICLR, 2025.
+
+{[}Zhang et al., 2025e{]} Jiayi Zhang, Jinyu Xiang, et al. AFlow: Automating agentic workflow generation. In ICLR, 2025.
+
+{[}Zhang et al., 2025f{]} Taolin Zhang, Dongyang Li, et al. Belle: A bi-level multi-agent reasoning framework for multi-hop question answering. In ACL, 2025.
+
+{[}Zhang et al., 2025g{]} Xuanming Zhang, Yuxuan Chen, et al. Metamind: Modeling human social thoughts with metacognitive multi-agent systems. In NeurIPS, 2025.
+
+{[}Zhang et al., 2025h{]} Yaolun Zhang, Xiaogeng Liu, et al. Metaagent: Automatically constructing multi-agent systems based on finite state machines. In ICML, 2025.
+
+{[}Zhao et al., 2024{]} Qinlin Zhao, Jindong Wang, et al. Competeai: understanding the competition dynamics of large language model-based agents. In ICML, 2024.
+
+{[}Zhao et al., 2025{]} Yujie Zhao, Lanxiang Hu, et al. Stronger-mas: Multi-agent reinforcement learning for collaborative llms. Arxiv, 2025.
+
+{[}Zheng et al., 2025a{]} Lifan Zheng, Jiawei Chen, et al. Rethinking the reliability of multi-agent system: A perspective from byzantine fault tolerance. Arxiv, 2025.
+
+{[}Zheng et al., 2025b{]} Yujia Zheng, Zhuokai Zhao, et al. Thought communication in multiagent collaboration. In NeurIPS, 2025.
+
+{[}Zhou et al., 2025{]} Yuxiang Zhou, Jichang Li, et al. Mobile-agent-rag: Driving smart multi-agent coordination with contextual knowledge empowerment for long-horizon mobile automation. Arxiv, 2025.
+
+{[}Zhu et al., 2025{]} Yinghao Zhu, Ziyi He, et al. Medagentboard: Benchmarking multi-agent collaboration with conventional methods for diverse medical tasks. In NeurIPS, 2025.
+
+{[}Zu et al., 2025{]} Lizheng Zu, Lin Lin, et al. Collaborative tree search for enhancing embodied multi-agent collaboration. In CVPR, 2025.
+
+\end{document}
