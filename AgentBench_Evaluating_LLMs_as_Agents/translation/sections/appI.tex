@@ -1,0 +1,97 @@
+% =====================================================================
+%   附录 I：网页浏览 (Web Browsing)
+% =====================================================================
+
+\section{网页浏览}\label{app:wb}
+
+\subsection{数据集细节}
+
+\subsubsection*{构造细节}
+
+Mind2Web 涵盖差旅、信息、服务、购物与娱乐等领域，使用 SimilarWeb 排名
+作为参考进行构建。其通过标注人员首先依据当前网站提出任务目标，然后记录
+他们的交互轨迹作为专家示范。本文的工作主要聚焦于跨环境的泛化能力——
+即使用跨领域（Cross Domain）测试集，其中包含来自 73 个网站的 912 个任务，
+分布于住房、求职、社交媒体、教育、医疗、政府、家政服务等领域。
+数据集构造细节请参见 \citet{deng2023}。每条任务样本包含以下内容：
+\begin{itemize}
+    \item \textbf{任务描述（Task Description）}：可在网站上达成的
+          高级别（非逐步的）目标，例如\emph{"查找评分不低于 4、时长
+          3 到 6 小时、面向中级学习者的 SAP S/4 HANA 课程，并将其加入购物车
+          完成结账"}。
+    \item \textbf{（参考）动作序列（Reference Action Sequence）}：
+          在已标注的交互序列中，第 $t$ 步的一个元动作包含 $\{e_t, o_t\}$，
+          其中 $e_t$ 表示目标元素的唯一后端 ID，$o_t$ 指的是对 $e_t$ 进行
+          的符号化操作（即 Click、Type 和 Select Options）。对于 Type 和
+          Select Options，还包括相应的文本输入。
+    \item \textbf{网页信息（Webpage Information）}：每一步对网页浏览环境
+          的详细观察。在人工标注过程中，每一步观察都捕获了一个快照，
+          包含来自网站的原始 HTML 代码以及前序交互轨迹。
+\end{itemize}
+
+研究发现，LLM 在处理真实网页中冗长的原始 HTML 代码时常常面临挑战。
+因此，Mind2Web 提出使用一个小语言模型（例如 DeBERTa）对 HTML 元素进行
+排序与过滤，以提升推理效率。
+
+给定用户的高级指令，智能体通过接收当前页面内容的观察与动作历史，持续地
+与网页系统进行交互，并预测由目标元素与意图操作构成的下一动作。
+
+\subsubsection*{评测设置}
+
+为提升效率，评测过程采用双重流程（沿用 \citet{deng2023}）。首先使用一个
+经过微调的小语言模型对 HTML 元素进行排序，并挑选出 top-$k$ 个潜在候选
+元素。随后，我们将元素选择构建为多选题问答（multi-choice QA）问题，每一轮
+提供 5 个候选。对于 Type 与 Select Options 操作，我们额外提示智能体指定
+该操作的参数，即需键入的文本或需选择的选项。
+
+\subsubsection*{评测指标}
+
+与原论文一致，我们考虑以下评测指标：
+\begin{itemize}
+    \item \textbf{元素准确率（Element Accuracy）}：所选元素 $e_t$ 的准确率。
+    \item \textbf{动作 F1（Action F1）}：操作 $o_t$ 在 token 层面的匹配分数。
+          由于存在文本值，Type 与 Select Options 类操作在此指标上有所区分。
+    \item \textbf{成功率（Success Rate）}：预测动作相对于参考动作的正确率。
+          对于步骤成功率（Step Success Rate），只有当所选元素 $e_t$ 正确
+          且预测操作 $o_t$ 与该步骤的金标准值相匹配时方视为成功；同样地，
+          对于任务成功率（Task Success Rate），仅当所有步骤均成功时，整个
+          任务方被视为成功——这是一个相当严格的度量。遗憾的是，即便当前
+          最强的 LLM 也只能达到个位数百分比的任务成功率。
+\end{itemize}
+
+由于现有 LLM 难以保证整体任务成功率，本文主要报告"步骤成功率"，作为每一
+动作步骤独立准确率的度量。在具体实验中，我们选择 top-$k=10$ 个候选元素
+以构建多选题，并采用 CoT few-shot 提示。因此，\code{gpt-3.5} 的结果可能
+与原论文 \citet{deng2023} 中 top-$k=50$ 设置与不同提示策略下的结果存在差异。
+
+\subsection{提示词示例}
+
+我们为 Mind2Web 评测采用了 3-example CoT 提示词。提示词的基本结构如下：
+\begin{quote}\small\ttfamily
+User:\\
+\verb|```|\\
+\texttt{<html> <div> <div> <a tock home page /> <button id=0 book a
+reservation.\dots</html>}\\
+\verb|```|\\
+Based on the HTML webpage above, try to complete the following task:\\
+Task: \code{Check for pickup restaurant available in Boston, NY on
+March 18, 5 pm with just one guest}\\
+Previous actions: None\\
+\\
+What should be the next action? Please select from the following choices
+(If the correct action is not in the page above, please select A. `None
+of the above'):\\
+A. None of the above\\
+B. \code{<button id=0 book a reservation.\dots>}\\
+C. \code{<select id=1 type>\dots</select>}\\
+D. \code{<div id=2>\dots</div>}\\
+\\
+Assistant:\\
+Thought: I need to select pickup restaurant first.\\
+Answer: C.\\
+Action: SELECT\\
+Value: Pickup
+\end{quote}
+
+提示词其余 2 个示例（关于机票比价与租车场景）以及完整的对话结构，请参见
+原论文附录 I.2。

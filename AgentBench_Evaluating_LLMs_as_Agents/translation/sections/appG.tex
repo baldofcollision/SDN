@@ -1,0 +1,119 @@
+% =====================================================================
+%   附录 G：家务整理 (House Holding)
+% =====================================================================
+
+\section{家务整理}\label{app:hh}
+
+\subsection{数据集细节}
+
+\subsubsection*{构造细节}
+
+ALFWorld 基准由一系列模拟家务场景的文本环境组成，提供了一个智能体可借助
+文本界面执行决策任务的交互式环境。给定家务环境描述与目标指令，智能体的目标
+是将复杂的高层目标分解为一系列简洁的动作。每一步之后，智能体会收到来自环境
+的反馈，使其能够动态调整计划，并转向后续任务，最终达成主目标。
+
+ALFWorld 数据集中每条评估样本包含以下内容：
+\begin{itemize}
+    \item \textbf{环境描述（Environment Description）}：包括智能体初始位置
+          以及所在房间中物体及其 ID 的快照，对整体家务环境的详细描述。
+    \item \textbf{目标（Objective）}：智能体在该环境中需达成的目标，通常
+          需要多步推理与探索（例如：将台灯放到桌上）。
+    \item \textbf{仿真环境（Simulated Environment）}：在智能体的每一步动作
+          之后，仿真环境会提供即时反馈，并评估智能体是否已完成该任务。
+\end{itemize}
+
+在数据集中，我们使用了 ALFWorld 数据集中评估分布外（eval out of distribution）
+划分中 134 个可解的问题。所有问题被分为 6 类：取放（pick and place）、
+取放清洁后置（pick clean then place）、取放加热后置（pick heat then place）、
+取放冷却后置（pick cool then place）、观察物品（look at obj）与取两件物品
+（pick two obj）。
+
+\subsubsection*{评测设置}
+
+由于问题本身的固有复杂性以及对输出格式的高标准要求，我们采用 1-shot 评测
+设置：对每个类别的问题，我们从训练集中选取同一类别的一个相对简单且完整的
+交互过程作为示例。沿用 ReAct \citep{yao2023breact} 的做法，我们采用其开源仓库\footnote{\url{https://github.com/ysymyth/ReAct}}
+中的少样本示例与提示词。此外，若 LLM 输出的格式无效，我们使用 BLEU 指标来
+评估输出与所有合法动作选项之间的相似度，并将相似度最高的选项作为模型
+本轮的动作。
+
+对每条样本，评估过程可分为 2 个部分：
+\begin{enumerate}
+    \item \textbf{初始化}：我们向模型描述任务并提供一个成功的示例。随后
+          我们详细描述环境，并阐明需要完成的目标。
+    \item \textbf{交互}：模型根据前序交互反馈与环境信息，生成若干思考
+          与下一动作。在收到模型的动作后，环境给出反馈（环境状态的变化
+          或模型所观察到的信息）。该过程反复进行，直到模型成功达成目标
+          （视为成功）或达到最大动作次数（视为失败）。值得注意的是，在
+          多次未果之后，模型有时会反复输出相同内容。为节省评测时间，
+          我们规定：若模型连续三次输出相同内容，则视为因重复而失败。
+\end{enumerate}
+
+\subsubsection*{评测指标}
+
+我们以总体成功率（Success Rate）作为模型性能的度量，即模型成功完成任务的
+数量与任务总数之比。
+
+\subsection{提示词示例}
+
+为使输出格式与仿真环境所支持的合法命令对齐，我们采用 1-shot 评测设置，
+即在指令后拼接一个成功完成任务的示例。在交互开始时，我们使用如下指令
+向模型描述任务：
+\begin{quote}\small\ttfamily
+Interact with a household to solve a task. Imagine you are an intelligent
+agent in a household environment and your target is to perform actions to
+complete the task goal. At the beginning of your interactions, you will
+be given the detailed description of the current environment and your
+goal to accomplish. For each of your turn, you will be given a list of
+actions which you can choose one to perform in this turn. You should
+choose from two actions: ``THOUGHT'' or ``ACTION''. If you choose
+``THOUGHT'', you should first think about the current condition and plan
+for your future actions, and then output your action in this turn. Your
+output must strictly follow this format:
+``THOUGHT: your thoughts. \textbackslash n ACTION: your next action\textbackslash n'';
+If you choose ``ACTION'', you should directly output the action in this
+turn. Your output must strictly follow this format:
+``ACTION: your next action\textbackslash n''. After your each turn, the
+environment will give you immediate feedback based on which you plan
+your next few steps. If the environment output ``Nothing happened'',
+that means the previous action is invalid and you should try more
+options.\\
+\\
+Reminder:
+\begin{enumerate}[label=\arabic*.,leftmargin=*]
+    \item the action must be chosen from the given available actions.
+          Any actions except provided available actions will be regarded
+          as illegal.
+    \item Think when necessary, try to act directly more in the process.
+\end{enumerate}
+\end{quote}
+
+数据集中的所有任务共分为 6 类。为更好地引导模型完成目标，我们从每个类别
+中选取一个相对简单且成功完成的样例作为 1-shot 示例。下面给出一个示例
+（对应"取放清洁后置"类任务；提示词详见原论文）：
+
+\begin{quote}\small\ttfamily
+User: You are in the middle of a room. Looking quickly around you, you
+see a cabinet 4, a cabinet 3, a cabinet 2, a cabinet 1, a countertop 1,
+a garbagecan 1, a handtowelholder 2, a handtowelholder 1, a sinkbasin 2,
+a sinkbasin 1, a toilet 1, a toiletpaperhanger 1, and a towelholder 1.
+Your task is to: put some spraybottle on toilet.\\
+\\
+Agent: THOUGHT: The task is to put some spraybottle on toilet, so first
+I need to search the room for some spraybottle. After finding the
+spraybottle, I need to take it to the toilet. I will start my search on
+cabinets. \textbackslash n ACTION: go to cabinet 1\\
+User: On the cabinet 1, you see a cloth 1, a soapbar 1, a soapbottle 1.\\
+Agent: ACTION: go to cabinet 2\\
+User: The cabinet 2 is closed.\\
+Agent: ACTION: open cabinet 2\\
+User: You open the cabinet 2. The cabinet 2 is open. In it, you see a
+candle 1, and a spraybottle 2.\\
+Agent: ACTION: take spraybottle 2 from cabinet 2\\
+User: You pick up the spraybottle 2 from the cabinet 2.\\
+Agent: ACTION: go to toilet 1\\
+User: On the toilet 1, you see a soapbottle 2.\\
+Agent: ACTION: put spraybottle 2 in/on toilet 1\\
+User: You put the spraybottle 2 in/on the toilet 1.
+\end{quote}

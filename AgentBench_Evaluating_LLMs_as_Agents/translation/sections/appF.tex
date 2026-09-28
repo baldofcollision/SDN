@@ -1,0 +1,128 @@
+% =====================================================================
+%   附录 F：横向思维谜题 (Lateral Thinking Puzzles)
+% =====================================================================
+
+\section{横向思维谜题}\label{app:ltp}
+
+\subsection{数据集细节}
+
+\subsubsection*{构造细节}
+
+每条样本由一对故事（谜面，例如：\emph{"一个男子走进一家餐厅，点了一碗
+甲鱼汤，喝完后便自杀了。他为什么这么做？"}）与真相（谜底）构成。
+我们将样本按难度分为四级：简单、中等、困难与专家级。LLM 智能体参与的
+LTP 规则如下：
+\begin{itemize}
+    \item \textbf{角色}：LTP 评测中的角色为主持人与解题者。主持人知晓故事
+          与真相，将故事呈现给解题者，并引导其猜出真相。解题者由 LLM
+          扮演，通过提出问题并综合主持人的回答来尝试破解真相。
+    \item \textbf{解题步骤}：每局游戏设有最大轮数（如 25）。解题者每轮需
+          基于已知事实提出一个问题。问题应能以"是"、"否"或"无关"作答。
+          主持人以正确答案回应。为降低 LLM 智能体的难度，主持人在解题者
+          陷入错误推理方向时，会在回答中提供一定的提示。
+    \item \textbf{游戏终止}：当解题者认为自己已猜出真相的主要部分时，可
+          向主持人宣告自己的推测剧情。若正确，主持人将宣布游戏结束。
+\end{itemize}
+
+\subsubsection*{评测设置}
+
+对每对故事与真相，我们按以下步骤评估模型：
+\begin{enumerate}
+    \item \textbf{初始化}：通过本地 Python 包安装或 Web API 设置 LTP
+          主持人系统。
+    \item \textbf{交互}：我们为 LLM 配置系统提示以构建其玩家角色。LLM 在
+          每局游戏的最大轮数内担任解题者，只要 LLM 不超出最大 token 长度，
+          就可持续进行。在自动评测中，我们将答案限制为"是"、"否"或"无关"，
+          并从 \code{gpt-3.5-turbo} 的回复中提取答案。同时，我们要求 LLM
+          在自动评测中总结其推理过程，以便终止检测更为准确。
+    \item \textbf{校验}：我们对每个 LLM 进行预实验，收集游戏进程中的所有
+          情形并设计校验方案。在自动评测中，我们为 \code{gpt-3.5-turbo}
+          设置一些关键词以提醒其考虑同义词等灵活情形。
+\end{enumerate}
+
+\subsubsection*{评测指标}
+
+我们通过以下自创指标来评估 LLM 的横向推理能力：
+\begin{itemize}
+    \item \textbf{单局准确率（Single Game Accuracy, SGA）}：在单局游戏中，
+          LLM 接近真相的轮次占比。
+    \item \textbf{轮次效率（Round Efficiency, RE）}：模型在最大轮数内猜出
+          真相的速度。
+    \item \textbf{问题相关性（Query Relevance, QR）}：模型所提问题与真相之间
+          的相关程度。
+    \item \textbf{游戏进度（Game Progress, GP）}：游戏结束前所取得的进度，
+          作为主要评测指标。我们将金标准真相分解为若干关键节点，并度量
+          智能体所命中的关键节点数量。
+\end{itemize}
+
+\subsection{LTP 系统的评测}
+
+我们通过人工验证的方式评估 LTP 系统的准确率，验证系统在关键节点识别与
+事实核查方面的准确性。我们比较了自动评测与人工评测下的单局准确率与
+问题相关性，发现自动评测有时对智能体更为宽容——尤其在开源模型上——
+使得 SGA 与 QR 的得分看上去优于人工评测。我们计划专门训练一个模型作为
+游戏的主持人，以提供更佳的游戏体验和更精确的评测。对于游戏进度与
+轮次效率，LTP 系统能够提供客观的评测，其水平可与人工评测相匹配。
+
+\subsection{LTP 游戏进度与终止}
+
+游戏进度定义为关键节点被命中的比例。关键节点由 \code{gpt-3.5-turbo}
+进行总结，并作为 \code{answer_keys} 字段纳入数据集（示例如下）：
+\begin{quote}\small
+\textbf{真相（Truth）}：\emph{那天晚上，他们去废弃建筑数台阶。他们在网上
+看到传言，称夜晚数台阶会比实际少一。然而第二天再去验证时，发现根本没有
+台阶。}\\
+\\
+\textbf{关键节点（Key points）}：
+\begin{enumerate}
+    \item 他们想数清废弃建筑的台阶数。
+    \item 发生了超自然事件。
+    \item 他们在网上看到传言：夜晚数台阶会比实际少一。
+    \item 第二天去废弃建筑验证时，发现根本没有台阶。
+    \item 他们因极度恐惧而崩溃。
+\end{enumerate}
+\end{quote}
+
+不同样本的关键节点数量各异。关于是否认定智能体猜中关键节点的判定，我们
+首先将相关问题转化为陈述句，再将句子简化为一句。若智能体已猜中某一关键
+节点，则删除该节点及相关推理，以避免重复猜测。
+
+\subsection{提示词示例}
+
+\textbf{智能体提示词}如下：
+\begin{quote}\small\ttfamily
+You are a game player, and you are playing Lateral Thinking Puzzle, also
+known as Situation Puzzle. Lateral Thinking Puzzle is a deductive reasoning
+game, and here are the game rules:\\
+\\
+1. At the beginning of the game, you will receive a narrative, referred
+to as ``story''. Based on the story, you need to ask questions that can
+be answered with ``yes'', ``no'', or ``irrelevant'' to guess out the
+``truth''.\\
+2. By asking questions, you narrow down the range of possibilities until
+you eventually guess out the truth.\\
+3. Each time, you can only ask one question.\\
+4. Remember that your role is a player. You cannot declare the end of the
+game, give up on reasoning, or request a new game.\\
+5. You cannot directly repeat information already provided in the story.\\
+6. You cannot directly ask for details about the story in the form of
+``why'' questions; you need to make your own guesses for truth.\\
+7. You cannot directly inquire about the story; you must make your own
+deductions.\\
+\\
+Next, please make full use of the information provided above to engage in
+game reasoning. Keep in mind that your questions should be answerable
+with ``yes'', ``no'', or ``irrelevant'', and you can only ask one
+question at a time.\\
+\\
+Here is your story: \code{\{story\}}\\
+\\
+You can start guessing the content of the truth, and I will answer your
+questions. Please note that your questions should be answerable with
+``yes'', ``no'', or ``irrelevant''.
+\end{quote}
+
+\textbf{主持人提示词}：主持人侧的提示词主要包含故事、真相、若干条严格的
+游戏规则（参见原文）。其完整结构与上述智能体提示词类似，区别在于主持人
+知晓真相，并能根据规则对解题者的提问以"是"、"否"或"无关"作答，并在
+特定情形下提供适度的引导性提示。

@@ -1,0 +1,143 @@
+% =====================================================================
+%   AgentBench: Evaluating LLMs as Agents  (Chinese Translation)
+%   Compile with:   xelatex main.tex   (two passes recommended)
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- 中文支持（ctex：自动选用系统中文字体） ----------
+\usepackage[UTF8,fontset=none,space=auto]{ctex}
+% 说明：
+%   - fontset=none 关闭 ctex 自带的默认字体集，改为下面手工指定，避免硬编码
+%     Windows 字体，在 Linux/macOS 上也仍能正常编译。
+%   - space=auto    让 ctex 自动在中英文之间加入合理空格。
+
+% ---------- 数学 / 符号 ----------
+\usepackage{amsmath,amssymb,amsfonts}
+
+% ---------- 图形与表格 ----------
+\usepackage{graphicx}
+\usepackage{booktabs,tabularx,multirow,multicol}
+\usepackage{array}
+
+% ---------- 链接 / 颜色 ----------
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    citecolor=teal!70!black,
+    urlcolor=blue!70!black,
+    pdftitle={AgentBench: Evaluating LLMs as Agents (中文翻译)},
+    pdfauthor={Xiao Liu 等 / 译注版}
+}
+\usepackage{xcolor}
+\usepackage[round]{natbib}        % 提供 \citep / \citet 等
+\bibliographystyle{plainnat}      % 在 references.tex 中已直接采用 thebibliography
+
+% ---------- 页面设置 ----------
+\usepackage{geometry}
+\geometry{a4paper,left=2cm,right=2cm,top=2.5cm,bottom=2.5cm,headheight=14pt}
+
+% ---------- 中文字体手工指定（兼容多平台） ----------
+%   ctex 在 fontset=none 时由 xeCJK 接管，我们用字体名称族切换
+\setCJKmainfont[BoldFont={SimHei},ItalicFont={KaiTi}]{SimSun}
+\setCJKsansfont{SimHei}
+\setCJKmonofont{FangSong}
+% 西文沿用默认 Computer Modern 即可（避免与中文字体名称冲突）
+
+% ---------- 行距 / 段距 ----------
+\linespread{1.25}
+\setlength{\parskip}{0.4\baselineskip}
+\setlength{\parindent}{2em}
+
+% ---------- 图形搜索路径 ----------
+\graphicspath{{./}{./figures/}{../figures/}{figures/}}
+
+% ---------- 定理 / 定义环境（来自 amsthm） ----------
+\usepackage{amsthm}
+\newtheorem{definition}{定义}
+\newtheorem{theorem}{定理}
+\newtheorem{proposition}{命题}
+\newtheorem{lemma}{引理}
+\theoremstyle{definition}
+\newtheorem{example}{示例}
+
+% ---------- 中文图 / 表 / 算法标题格式 ----------
+% （已在 preamble 中预留 caption 配置位，以下行为空，移除之避免重定义）
+
+
+% ---------- 列表 / 引用 / 其它辅助包 ----------
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=*,topsep=2pt,itemsep=1pt}
+\usepackage{footmisc}
+\renewcommand{\thefootnote}{\arabic{footnote}}
+
+% ---------- 算法环境（附录多处用）----------
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+% ---------- 同一行内联代码、键入样式 ----------
+%   普通 \texttt 会将 '_' 解析为下标；这里使用 \nolinkurl 等价方式
+%   （由 hyperref 提供），安全显示 _、&、% 等字符
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+
+% ---------- 双语标题宏（少数专有名词用） ----------
+\newcommand{\EN}[1]{\emph{#1}}
+
+% ---------- 章节标题微调（贴近原文 ICLR 论文排版） ----------
+\usepackage{titlesec}
+\titleformat*{\section}{\large\bfseries}
+\titleformat*{\subsection}{\normalsize\bfseries}
+\titleformat*{\subsubsection}{\normalsize\bfseries}
+
+% ---------- 中文图 / 表 / 算法标题格式 ----------
+\usepackage{caption}
+\captionsetup{font=small,labelsep=quad,labelfont={bf}}
+\captionsetup[table]{skip=4pt}
+
+% =====================================================================
+\title{\vspace{-1.0cm}\textbf{AgentBench：将大语言模型作为智能体进行评估}\\
+\large 原论文中文翻译稿\\(ICLR 2024)}
+\author{原\ 作：Xiao Liu, Hao Yu, Hanchen Zhang, Yifan Xu, Xuanyu Lei,
+        Hanyu Lai, Yu Gu, Hangliang Ding, Kaiwen Men, Kejuan Yang,\\
+        Shudan Zhang, Xiang Deng, Aohan Zeng, Zhengxiao Du, Chenhui Zhang,\\
+        Sheng Shen, Tianjun Zhang, Yu Su, Huan Sun, Minlie Huang,\\
+        Yuxiao Dong, Jie Tang\\[2pt]
+        （清华大学\ \ The Ohio State University\ \ UC Berkeley）}
+\date{}
+% =====================================================================
+\begin{document}
+\maketitle
+
+% 论文首页脚注式头注（原论文 ICLR 头注 + 中文致谢）
+\begin{center}
+\small
+Published as a conference paper at ICLR 2024.\\
+（原论文发表于 ICLR 2024。本文为其中文翻译稿，仅供学术交流使用。）
+\end{center}
+
+% 引入后文各章节
+\input{sections/abstract.tex}
+\input{sections/intro.tex}
+\input{sections/definition.tex}
+\input{sections/composition.tex}
+\input{sections/evaluation.tex}
+\input{sections/related.tex}
+\input{sections/conclusion.tex}
+
+% 致谢 + 参考文献
+\input{sections/ack.tex}
+\input{sections/references.tex}
+
+% 附录
+\input{sections/appA.tex}
+\input{sections/appB.tex}
+\input{sections/appC.tex}
+\input{sections/appD.tex}
+\input{sections/appE.tex}
+\input{sections/appF.tex}
+\input{sections/appG.tex}
+\input{sections/appH.tex}
+\input{sections/appI.tex}
+\input{sections/appJ.tex}
+
+\end{document}

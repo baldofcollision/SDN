@@ -1,0 +1,141 @@
+% =====================================================================
+%   附录 C：数据库 (Database)
+% =====================================================================
+
+\section{数据库}\label{app:db}
+
+\subsection{数据集细节}
+
+\subsubsection*{构造细节}
+
+我们通过复用并整合多个已有数据集来获取源查询与数据库：WikiSQL
+\citep{zhong2017}、WikiTableQuestions \citep{pasupat2015}、SQA
+\citep{iyyer2017}、HybridQA \citep{chen2020hybridqa} 与 FeTaQA
+\citep{nan2021fetaqa}，以确保指令与数据的多样性。
+
+为进一步丰富数据集并避免潜在的数据泄露，我们采用 \code{gpt-3.5-turbo}
+进行数据增强：给定表的表头信息与原始行，\code{gpt-3.5-turbo} 将生成 10 条
+新的数据行；同时，利用表名、表头信息以及若干 SQL 示例，\code{gpt-3.5-turbo}
+被要求额外生成 5 条 SQL 查询。每条得到的 SQL 语句被依次送入
+\code{gpt-3.5-turbo}，要求其在不改变原意的前提下重新表述。各有效条目
+经过筛选后，被采样进入最终的数据集（共 300 条），并被归为三类基本
+数据库操作：\code{select}、\code{insert} 与 \code{update}。
+
+因此，数据集中每条样本包含以下内容：
+\begin{itemize}
+    \item \textbf{指令（Instruction）}：用于描述问题并引导智能体动作的自然
+          语言描述。
+    \item \textbf{表信息（Table Info）}：关于表名与列名（即元信息）的说明。
+    \item \textbf{表内容（Table Content）}：表中的实际内容，用于创建数据库。
+    \item \textbf{正确答案（Correct Answer）}：对于 \code{select} 类样本，
+          为文本答案；对于其它类型（即 \code{insert}、\code{update}）的
+          样本，为被正确修改后表的哈希码。
+\end{itemize}
+
+\subsubsection*{评测设置}
+
+我们按以下流程对数据集中的每条问题进行评估：
+\begin{enumerate}
+    \item \textbf{初始化}：根据表内容构造初始 SQL 脚本，并在 Docker 容器中
+          初始化一个 MySQL 数据库，对外暴露一个转发端口用于交互。
+    \item \textbf{交互}：初始提示引导智能体给出一条可执行的 SQL 命令及其
+          推理过程。智能体接收提示、指令与表信息描述，并被期望以指定格式
+          返回响应。我们执行该 SQL 语句并直接将结果返回给智能体，循环往复，
+          直至智能体提交最终答案或发生错误（例如达到最大交互轮数或解析动作
+          失败）。
+    \item \textbf{校验}：对于 \code{select} 类问题，我们将智能体的答案与
+          标准文本答案进行比较（忽略顺序，但要求完全匹配）。若答案为单一
+          数字，则所有等价表示均被接受（例如 \code{5}、\code{"5.0"}、
+          \code{'+5'} 视为相同）。对于 \code{insert} 或 \code{update} 类
+          问题，我们计算并比较智能体执行操作后表的哈希值与正确 SQL 操作后
+          表的哈希值。
+\end{enumerate}
+
+\subsubsection*{评测指标}
+
+本文以智能体完成任务的成功率作为评测指标。总体成功率为三类任务成功率的
+宏平均。
+
+\subsection{数据增强}
+
+我们对基于既有 SQL 数据集的三类 DB 任务的数据增强进行详细说明
+\citep{zhong2017,pasupat2015,iyyer2017,chen2020hybridqa,nan2021fetaqa}，
+这些数据集均为不包含 \code{insert}、\code{update} 等常见操作的 QA 类问题。
+我们首先验证原始数据的有效性，然后从经过过滤的数据中按类随机采样，构成
+最终数据集。我们采用 \code{gpt-3.5-turbo} 对原始指令进行扩充与改写。
+\begin{itemize}
+    \item \textbf{Insert}：给定表的表名、表头信息以及原始行，我们生成 5 条
+          用于插入的 SQL 语句。随后在不改变原意的前提下对其进行改写
+          （使用更短或更长的表达，或调整语序）。
+    \item \textbf{Update}：给定表名、表头信息以及先前生成的 5 条插入 SQL
+          语句，我们基于这些语句再生成 5 条用于修改的 SQL 语句，并按上述
+          标准进行改写。
+\end{itemize}
+
+为保证数据质量，每条经增强的查询语句均需通过单元测试脚本。任务中的查询
+类型均落在传统的 Text-to-SQL 评测范畴之内，我们仅对其进行采样与归类。
+在既有数据集中的每条查询语句被分类为以下类型之一：\code{Counting}、
+\code{Aggregation-MIN}、\code{Aggregation-MAX}、\code{Aggregation-AVG}、
+\code{Aggregation-SUM}、\code{Ranking} 或 \code{Comparison}，每条只能归入
+一种类型；其余则归入 \code{Other}。
+
+\subsection{提示词示例}
+
+我们使用如下格式的提示词：
+\begin{quote}\small\ttfamily
+User: I will ask you a question, then you should help me operate a MySQL
+database with SQL to answer the question. You have to explain the problem
+and your solution to me and write down your thoughts. After thinking and
+explaining thoroughly, every round you can choose to operate or to answer.\\
+your operation should be like this:\\
+Action: Operation\\
+\verb|```sql|\\
+SELECT * FROM table WHERE condition;\\
+\verb|```|\\
+You MUST put SQL in markdown format without any other comments. Your SQL
+should be in one line. Every time you can only execute one SQL statement.
+I will only execute the statement in the first SQL code block. Every time
+you write a SQL, I will execute it for you and give you the output.\\
+If you are done operating, and you want to commit your final answer, then
+write down:\\
+Action: Answer\\
+Final Answer: ["ANSWER1", "ANSWER2", \dots]\\
+DO NOT write this pattern unless you are sure about your answer. I expect
+an accurate and correct answer. Your answer should be accurate. Your answer
+must be exactly the same as the correct answer. If the question is about
+modifying the database, then after done operation, your answer field can
+be anything. If your response cannot match any pattern I mentioned earlier,
+you will be judged as FAIL immediately. Your input will be raw MySQL
+response, you have to deal with it by yourself.
+\end{quote}
+
+\subsection{数据增强中的偏差研究}
+
+为验证本文数据集未引入由模型在数据增强过程中所产生的偏差，我们使用
+\code{claude-2} 重新标注了一小批量数据，并与以 \code{gpt-4} 和
+\code{gpt-3.5-turbo} 为例的标注结果进行比较。
+
+\begin{table}[h]
+    \centering
+    \small
+    \caption{
+        \textbf{表 5：在新标注数据上 \code{gpt-4} 与 \code{gpt-3.5-turbo}
+        的得分对比（原标注数据 vs.\ 新标注数据）。}
+    }
+    \label{tab:db-bias}
+    \begin{tabular}{l c c c c}
+        \toprule
+        \textbf{模型} & \textbf{数据来源} & \textbf{SELECT} & \textbf{INSERT} & \textbf{UPDATE} \\
+        \midrule
+        \code{gpt-4}          & 原标注 & 0.32 & 0.32 & 0.32 \\
+        \code{gpt-3.5-turbo}  & 原标注 & 0.21 & 0.23 & 0.66 \\
+        \code{gpt-4}          & 新标注 & ---  & 0.27 & 0.66 \\
+        \code{gpt-3.5-turbo}  & 新标注 & ---  & 0.19 & 0.92 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+如表~\ref{tab:db-bias} 所示，数据在两类标注下表现出相似的得分模式——
+\code{gpt-4} 在 UPDATE 类操作上表现较弱，而在 INSERT 类任务上则更胜一筹。
+这一观察表明，本文的数据增强方法并未引入明显的偏差，不同操作间的相对
+得分关系得以保持。

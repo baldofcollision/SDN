@@ -1,0 +1,49 @@
+% =====================================================================
+%   2. LLM-as-Agent：定义与预备 (Definition & Preliminary)
+% =====================================================================
+
+\section{LLM 作为智能体：定义与预备}
+
+本节给出用以描述 LLM-as-Agent 评测的术语形式化定义，以及在智能体评估场景下
+使用 LLM 所需的预备知识。
+
+\begin{definition}[LLM-as-Agent 的交互式评测]
+LLM-as-Agent 的交互式评测可被视为一个部分可观察的马尔可夫决策过程
+（Partially Observable Markov Decision Process, POMDP）
+$(\mathcal{S}, \mathcal{A}, T, R, \mathcal{U}, \mathcal{O})$，其由状态空间
+$\mathcal{S}$、动作空间 $\mathcal{A}$、状态转移函数
+$T\colon \mathcal{S}\times\mathcal{A}\to\mathcal{S}$、奖励函数 $R$、
+任务指令空间 $\mathcal{U}$ 与观察空间 $\mathcal{O}$ 构成。本文将一个 LLM
+智能体记为 $\mathcal{M}$。
+\end{definition}
+
+\subsubsection*{思维链（Chain-of-Thought, CoT）及其他推理策略}
+
+由于 LLM-as-Agent 要求 LLM 具备较强的推理能力，CoT
+\citep{wei2022b}——一种与动作相结合、在相关评测中被视为默认策略的方法
+\citep{yao2023b}——同样在 AgentBench 中被采用。尽管之后又涌现出大量改进策略，
+例如引入集成方法 \citep{wang2023c}、反思机制 \citep{shinn2023} 与搜索机制
+\citep{yao2023a}，但我们在 AgentBench 中仍以最朴素的 CoT 评估 LLM。
+不采用多次试验、重复生成或复杂策略，是因为 CoT 是部署 LLM 智能体最为简单、
+廉价且最常用的方式。
+
+\subsubsection*{典型的结束原因（Finish Reasons）}
+
+尽管 LLM 能力日新月异，AgentBench 的实验仍揭示：即便是最强的
+\code{gpt-4}，也尚未达到实用化智能体的水准。我们将 LLM 智能体在
+AgentBench 任务上的结束原因归纳为以下五类典型情形：
+
+\begin{itemize}
+    \item \textbf{超出上下文长度（Context Limit Exceeded, CLE）}：交互历史
+          的长度超出了 LLM 所允许的最大上下文长度（仅在 2\,048 长度的
+          \code{text-davinci-002} 与 \code{text-davinci-003} 模型上发生过）。
+    \item \textbf{格式无效（Invalid Format, IF）}：智能体未遵循格式指令。
+    \item \textbf{动作无效（Invalid Action, IA）}：智能体虽遵循了格式指令，
+          但所选动作无效。
+    \item \textbf{超出任务限制（Task Limit Exceeded, TLE）}：智能体在达到
+          预先设定的最大交互轮数后仍未解决问题，或在多轮中反复生成相同内容。
+    \item \textbf{完成（Complete）}：任务正常结束。
+\end{itemize}
+
+其中，IF 与 IA 多由 LLM 较弱的指令遵循能力所致；而 TLE 则通常意味着
+模型在某些任务上多轮交互能力的不足。

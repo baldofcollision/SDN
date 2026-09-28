@@ -1,0 +1,95 @@
+% =====================================================================
+%   附录 A：评估框架
+% =====================================================================
+
+\appendix
+\renewcommand{\thesection}{\Alph{section}}
+\setcounter{section}{0}
+
+\section{评估框架}\label{app:framework}
+
+\subsection{传统的评估框架}
+
+传统的评估框架可分为以下两类：
+\begin{enumerate}[label=\arabic*．,leftmargin=*]
+    \item \textbf{传统任务}（例如单轮生成、分类等）。这些框架针对特定任务设计，
+          难以适应更复杂的多轮交互任务。
+    \item \textbf{智能体类任务}（具有多轮交互的任务）。这些框架通常由数据集
+          创作者为某一特定任务量身定制，因而存在若干局限：
+    \begin{itemize}
+        \item 它们专为单一任务设计，难以迁移到其它任务；
+        \item 各组件（任务、智能体、评估）之间的通信通常发生在同一进程内
+              或通过创建子进程进行，强制要求在同一台设备上进行评估；
+        \item 它们一次仅能对一个任务与一个智能体进行评测。
+    \end{itemize}
+\end{enumerate}
+
+\subsection{本文设计的评估框架}
+
+为克服传统智能体评估框架的局限性，本文设计了一种具有如下特征的新框架：
+
+\paragraph{解耦的服务器/客户端架构。}
+本文的框架将任务服务器（Task Server）、智能体服务器（Agent Server）与评估
+客户端（Evaluation Client）解耦，使各部分可独立部署。它们通过 HTTP 协议
+相互通信，因此可以运行在不同的设备上，从而不再受限于同机部署以满足任务
+与智能体的双重需求。
+
+\paragraph{智能体—任务协同评估。}
+本框架支持同时对多个智能体与多个任务进行任意组合的协同评估，提供了更
+灵活的测试场景。
+
+\paragraph{网络流算法。}
+我们还在评估客户端中引入了网络流算法，以最大化评估效率。这一优化确保
+智能体与任务 worker 均能被充分利用。
+
+\paragraph{可恢复评估。}
+本框架具备可恢复评估的特性，便于在中断后无缝恢复并继续评估工作。
+
+借助上述改进，本文所提评估框架克服了传统方法的局限，能够为多轮任务
+智能体评估提供一种更通用、高效且可扩展的解决方案。本框架的整体结构
+如图~\ref{fig:framework} 所示。
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{framework_placeholder.png}
+    \caption{
+        \textbf{图 5：AgentBench 工具包}。该工具包专为任务与智能体的无缝
+        部署以及高效的评估分配而精心打造。智能体服务器（左）形态多样，
+        我们可通过 HTTP 协议部署模型服务并开放 API；任务服务器（右）由
+        任务控制器与若干任务 worker 组成，其环境被封装在隔离环境中，
+        确保互不冲突并可高效执行；评估客户端（居中）构建智能体—任务图，
+        并采用最大流算法优化交互，使客户端 worker 可顺畅地与智能体和
+        任务服务器通信，从而确保任务与评估的顺畅执行。
+    }
+    \label{fig:framework}
+\end{figure}
+
+\subsection{最大流算法的实现}
+
+在评估过程中，我们采用 \citet{edmonds1972} 提出的 Edmonds--Karp 算法，作为
+\citet{ford1962} 提出的 Ford--Fulkerson 方法的一种实用实现，用于计算网络
+中的最大流，时间复杂度为 $\mathcal{O}(|V||E|^2)$。
+
+为形式化问题，考虑有 $n$ 个智能体，记为 $A_1, A_2, \dots, A_n$；$m$ 个
+任务，记为 $T_1, T_2, \dots, T_m$。我们的目标是对 $l$ 组不同的配对
+$(A_{x_k}, T_{y_k})$ 进行评估，其中 $1 \le k \le l$。此外，对每一对
+$(A_{x_k}, T_{y_k})$，我们应评估 $s_k$ 条样本。智能体 $A_k$ 与任务 $T_k$
+所对应的 worker 数分别记为 $w(A_k)$ 与 $w(T_k)$。
+
+我们构造的流图可表示为 $G = \langle V, E \rangle$，其中顶点集合 $V$ 定义为：
+\begin{equation}\label{eq:vertex}
+    V = \{A_k \mid 1 \le k \le n\} \cup \{T_k \mid 1 \le k \le m\} \cup \{S, D\},
+\end{equation}
+带权边集合 $E$ 定义为：
+\begin{equation}\label{eq:edge}
+    E = \{(A_{x_k}, T_{y_k}, s_k) \mid 1 \le k \le l\}
+        \cup \{(S, A_k, w(A_k)) \mid 1 \le k \le n\}
+        \cup \{(T_k, D, w(T_k)) \mid 1 \le k \le m\}.
+\end{equation}
+
+我们对源点 $S$ 至汇点 $D$ 应用最大流算法。对于每一条流边
+$(A_i, T_j, f_{(i,j)})$，我们为智能体 $A_i$ 与任务 $T_j$ 分配 $f_{(i,j)}$
+条样本。分配完成后，对应边上的权重应减去相应的流量值；当一轮评估完成后，
+连接到 $S$ 或 $D$ 的边的权重应加 1。
+
+我们还建立了一个周期性时间间隔，以对新出现的评估三元组重新对网络应用该算法。

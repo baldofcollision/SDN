@@ -1,0 +1,41 @@
+% =====================================================================
+%   5. 相关工作 (Related Work)
+% =====================================================================
+
+\section{相关工作}
+
+\paragraph{大语言模型的评测。}
+自监督 LLM \citep{liu2021sl}——尤其是经过对话对齐的模型
+\citep{brown2020,chowdhery2022,zhang2022,scao2022,zeng2022,touvron2023,ouyang2022,anthropic2023a,openai2023}——的
+通用能力刷新了人们对深度学习系统的认知，并显著超越了传统 NLP 评测的范畴。
+因此，LLM 的评测已成为一项紧迫而充满挑战的课题。相较于既有工作多聚焦于
+一组特定的任务 \citep{wang2019superglue,gehrmann2021gem}，越来越多的
+基准尝试纳入更广泛的任务与数据集
+\citep{hendrycks2021b,liang2022holistic,srivastava2023}。然而，这些基准
+大多仍局限于传统任务，未能对 LLM 的开放式生成、多轮交互以及作为智能体
+进行行动的能力加以评估。
+
+\paragraph{LLM 作为智能体。}
+在 LLM 时代之前，TextWorld \citep{cote2019}、Jericho \citep{hausknecht2020}、
+LIGHT \citep{urbanek2019} 等文本游戏环境是语言智能体研究的主流，研究多基于
+BERT \citep{devlin2019} 与强化学习开展。随着 LLM 的兴起，LLM 智能体的研究
+开始蓬勃发展 \citep{huang2022}，尤其在思维链（CoT）\citep{wei2022b} 提出之后。
+ReAct \citep{yao2023b} 是将 CoT 推理与动作结合应用于智能体任务的先驱工作。
+此后，一系列先进的推理策略
+\citep{kim2023,shinn2023,wang2023d,liu2023,yao2023a,gu2023discriminate}、
+应用框架 \citep{autogpt,babyagi,agentgpt} 以及多智能体系统
+\citep{park2023,hong2023metagpt,wu2023autogen} 相继涌现，引发广泛关注。
+然而，相关的数据集与可用模型仍较为有限，缺少一套标准且全面的评测基准。
+AgentBench 正是首个面向 LLM-as-Agent 的系统性基准，覆盖了广泛的任务与可用的
+LLM，并首次提出采用智能体任务来衡量 LLM 表现的思想。
+
+\paragraph{在可执行环境中评估 LLM。}
+随着 LLM 在真实世界任务上的能力不断增强，另一个研究趋势是在可执行环境中
+而非静态数据集上对其进行评测。除文本游戏（如 ALFWorld \citep{shridhar2020b}）
+外，另一主流方向是代码执行类评估。APPS \citep{hendrycks2021a}、HumanEval
+\citep{chen2021} 与 MBPP \citep{austin2021} 率先对代码 LLM 的功能正确性
+而非文本相似度进行评估。这一范式在后续工作中被广泛沿用
+\citep{li2022alphacode,zheng2023codegeex,nijkamp2023codegen}。然而，既有的
+代码评估框架鲜有考虑多轮交互。与本文同期的工作 InterCode \citep{yang2023}
+发布了一个支持在 Bash 与 SQL 环境中对模型与系统进行交互式评测的框架，与
+AgentBench 中的 OS 与 DB 任务类似。

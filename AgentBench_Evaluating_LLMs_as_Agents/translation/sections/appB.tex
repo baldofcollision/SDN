@@ -1,0 +1,153 @@
+% =====================================================================
+%   附录 B：操作系统 (Operating System)
+% =====================================================================
+
+\section{操作系统}\label{app:os}
+
+\subsection{数据集细节}
+
+\subsubsection*{构造细节}
+
+操作系统（OS）数据集中的每条评估样本包含以下内容：
+\begin{itemize}
+    \item \textbf{指令（Instruction）}：以自然语言描述的、需要 LLM 解决的
+          问题。
+    \item \textbf{Docker 环境}：启动所使用的 Docker 镜像
+          （例如预设的 \code{local-os/default}）。
+    \item \textbf{初始化脚本（Initialization Script，可选）}：在交互开始之前
+          需独立执行（\code{docker exec}）的 bash 脚本（例如用户配置、文件、
+          系统状态）。
+    \item \textbf{启动脚本（Start Script，可选）}：在 shell 创建之后、交互
+          开始之前执行的 bash 脚本。
+    \item \textbf{校验流水线（Checking Pipeline）}：用于判断 LLM 答案或操作
+          正确性的检查方法。
+    \item \textbf{示例脚本（Example Script，可选）}：作为参考解答的 bash 脚本。
+          换言之，若在交互中执行该脚本，则可得到正确结果。该脚本仅用于下文
+          介绍的单元测试中。
+\end{itemize}
+
+除传统的纯问答（QA）评测外，本文在 OS 评测中设计了两类任务：
+\begin{itemize}
+    \item \textbf{问答（QA）}：LLM 需输出命令以解决 OS 上的特定问题
+          （如统计数量、查看文件内容）。在此情形下，模型最终需提交答案。
+    \item \textbf{操作（Operation）}：LLM 需输出命令以在操作系统上执行
+          某些可验证的操作（例如修改文件/用户状态）。在此情形下，模型无需
+          提交最终答案。
+\end{itemize}
+
+借助统一的校验流水线，两类任务能够以统一的方式进行评测。
+
+收集与 OS 相关的具有挑战性的查询是较为困难的。实践中，本文 OS 评测指令的
+约一半由人工撰写或收集，另一半则主要由 \code{gpt-4} 生成，并经过严格的
+单元测试筛选（即确保能产生正确答案/状态）。
+
+对于人工编写的指令，我们首先从 Stack Overflow\footnote{\url{https://stackoverflow.com/}}
+中收集了 6\,000 个带有 \code{bash} 或 \code{shell} 标签的真实问题及其解答，
+并按点赞数排序。我们邀请了 8 位主修编程的标注者从中挑选具有挑战性的问题。
+对每个被选中的问题，标注者需创作一条或多条任务指令，并撰写详细的问题
+描述、初始化脚本、启动脚本与校验流水线。最终，我们对每条评估样本进行交叉
+验证，确保其正确性。每条问题的标注平均耗时约 2 小时。
+
+对于生成式问题，本文设计了如下单元测试环节：
+\begin{enumerate}
+    \item \textbf{初始化脚本正确性}：执行初始化脚本，剔除退出码不为 0
+          （即初始化错误）的样本。
+    \item \textbf{示例代码正确性}：执行示例代码与校验流水线，以判断答案的
+          正确性。我们剔除答案错误的样本。
+\end{enumerate}
+
+最终，本文构建了 144 条高质量且多样化的 OS 评估样本，每条样本均配有
+可交互的测试环境及相应的校验流水线（即脚本）。智能体以 1-shot CoT
+作为提示，以获得更规范的输出格式（参见附录~\ref{app:os}~B）。
+
+\subsubsection*{评测设置}
+
+对每个问题（即一条指令），其执行过程可分为 3 个部分：
+\begin{enumerate}
+    \item \textbf{初始化（Initialization）}：根据指令创建一个指定镜像的
+          Docker 容器，并运行初始化 bash 脚本以建立指令所规定的环境。
+    \item \textbf{交互（Interaction）}：在该 Docker 容器中启动一个新 shell，
+          并执行指令规定的启动 bash 脚本。随后将待测试的 LLM 与指令及
+          问题描述一并喂入，由其开始与 shell 交互。在每一轮中，模型有
+          两种可选动作：其一是运行 bash 脚本（即可在 shell 中生成并执行
+          一系列命令）；其二是提交答案（即可终止交互过程）。需要注意的是，
+          若超出轮数上限（默认 8 轮），则判定模型未能解决该问题。
+    \item \textbf{校验（Checking）}：每个问题均对应一条包含若干脚本
+          $f_1, f_2, \dots, f_n$ 的校验流水线，其中 $f_k$ 表示流水线中
+          的第 $k$ 个脚本片段。对于 $f_k$，将模型的答案 $o_0$ 与此前脚本
+          $f_t$（$t<k$）的输出 $o_t$ 一并作为输入参数传入，即
+          $o_k = f_k(o_0, o_1, \dots, o_{k-1})$。当且仅当所有脚本的退出码
+          均为 0 时，结果视为正确。
+\end{enumerate}
+
+\subsubsection*{评测指标}
+
+本文以成功率（Success Rate）作为 LLM 在执行过程中解决问题的度量指标。
+每条问题的最终状态仅有两种：正确或错误。
+
+\subsection{动作}
+
+在 OS 评测中，我们设计了两大类动作：
+\begin{itemize}
+    \item \textbf{Bash}：启动一条 bash 命令（在 \code{content} 字段中以
+          文本形式输入）。
+    \item \textbf{Commit}：宣布任务目标的完成。若该任务为 QA 类问题，
+          则智能体应在 \code{content} 字段中提交最终答案；否则，校验流水线
+          会自动检查系统状态以判断正确性。
+\end{itemize}
+
+\subsection{提示词示例}
+
+OS 评测的提示词由指令与交互轨迹的格式化方式组成。指令提示词的一个示例如下：
+\begin{quote}\small\ttfamily
+You are an assistant that will act like a person, I will play the role of
+linux(ubuntu) operating system. Your goal is to implement the operations
+required by me or answer to the question proposed by me. For each of your
+turn, you should first think what you should do, and then take exact one of
+the three actions: ``bash'', ``finish'' or ``answer''.
+\end{quote}
+（此处译文略，下同——见原文提示词格式。详细提示词模板请参照原论文。）
+
+轨迹采用 CoT 风格组织，并配以 1-shot 示例，以帮助模型更好地理解动作空间，
+如下所示：
+\begin{quote}\small\ttfamily
+<USER>:\\
+\hspace*{2em}\verb|{INSTRUCTION}|\\
+\hspace*{2em}Now, my problem is:\\
+\hspace*{2em}\verb|Tell me how many files are in the directory "/etc"?|\\
+\\
+<AGENT>:\\
+\hspace*{2em}Think: To count the files in /etc, I need to print all the
+files in it.\\
+\hspace*{2em}Act: bash\\
+\hspace*{4em}\verb|```bash|\\
+\hspace*{4em}\verb|ls /etc|\\
+\hspace*{4em}\verb|```|\\
+\\
+<USER>:\\
+\hspace*{2em}The output of the OS:\\
+\hspace*{2em}\verb|cpi cron.hourly fuse.conf iproute2 lvm ... [truncated]|\\
+\\
+<AGENT>:\\
+\hspace*{2em}Think: The output has been truncated because it is too long,
+so I need to count files by script directly.\\
+\hspace*{2em}Act: bash\\
+\hspace*{4em}\verb|```bash|\\
+\hspace*{4em}\verb|ls -1 /etc | wc -l|\\
+\hspace*{4em}\verb|```|\\
+\\
+<USER>:\\
+\hspace*{2em}The output of the OS: 220\\
+\\
+<AGENT>:\\
+\hspace*{2em}Think: Now I get the answer, it is 220.\\
+\hspace*{2em}Act: answer(220)\\
+\\
+<USER>:\\
+\hspace*{2em}Now, I will start a new problem in a new OS. My problem is:\\
+\hspace*{2em}\verb|{PROBLEM}|
+\end{quote}
+
+LOOP 部分按 \code{<AGENT>} 回复的 \code{Action} 进行分支：若为 \code{bash}，
+则执行命令并向 \code{User} 反馈输出；若为 \code{answer} 或 \code{finish}，
+则执行校验脚本后退出循环；其它情形同样退出循环。

@@ -1,0 +1,102 @@
+% =====================================================================
+%   1. 引言 (Introduction)
+% =====================================================================
+
+\section{引言}
+
+能够在特定环境中进行决策与动作执行的智能体（intelligent agent）与自主实体
+（autonomous entity）\citep{searle1970,maes1994,wooldridge1995}，自古以来都是人工智能
+（Artificial Intelligence, AI）研究中的核心概念。尽管深度学习算法在计算机视觉与
+自然语言处理（Natural Language Processing, NLP）领域已取得长足进展，但其用于开发
+高效且实用的辅助型智能体的潜力，迄今仍未被充分挖掘。
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{realworld_placeholder.png}
+    \caption{
+        本图为原论文图 2 的中文译图——\textbf{AgentBench 在 8 类真实环境下的
+        系统化评测框架}。左侧为现实世界中的典型挑战，右侧为 8 个面向不同
+        真实场景的交互式环境，LLM 作为智能体居于其间，通过感知环境、下达
+        动作与之交互。本文首版共评测了 29 个 LLM。
+    }
+    \label{fig:realworld}
+\end{figure}
+
+大语言模型（Large Language Model, LLM）的兴起
+\citep{brown2020,chowdhery2022,touvron2023}，以 \code{GPT-4} \citep{openai2023} 为代表，
+为这一研究领域注入了崭新的机遇。通过大量对齐训练
+\citep{ouyang2022,wei2022a,sanh2022}，LLM 不仅熟练掌握了传统 NLP 任务，
+亦展现出强大的意图理解与指令执行能力。这一进展直接催生了大量以 LLM 为基础
+的自主目标达成应用，例如 \code{AutoGPT} \citep{autogpt}、\code{BabyAGI} \citep{babyagi}、
+\code{AgentGPT} \citep{agentgpt}，以及面向社交与游戏情境的 LLM 智能体
+\citep{park2023,wang2023b,zhu2023}，引发社会各界的广泛关注与讨论。
+
+然而，缺乏一套系统、标准的 LLM-as-Agent 评测基准已成为一项关键挑战。
+过去，研究者常用基于文本的游戏环境
+\citep{osborne2022,cote2019,hausknecht2020,urbanek2019} 来评估语言智能体，
+但其普遍存在动作空间封闭离散、过度聚焦于常识接地（commonsense grounding）
+等局限。近年来，面向具身智能体（embodied agent）的研究
+\citep{reed2022,huang2022,ahn2022,li2022a} 采用基于游戏
+\citep{kuttler2020,fan2022}、图形界面
+\citep{shi2017,toyama2021} 以及室内场景 \citep{shen2021,srivastava2022} 的复杂多模态仿真器。
+然而，这些仿真器尽管复杂度较高，却难以反映 LLM 的真实使用场景；
+其多模态属性也对仅支持纯文本输入的 LLM 的评测造成了实质障碍。
+更主要的问题在于：现有智能体基准大都聚焦于单一环境，因而无法为
+LLM 在多样化应用场景中的整体表现提供全景式的评估。
+
+为应对上述挑战，本文提出 \textbf{AgentBench}——一项专为多维度 LLM-as-Agent
+评估而设计的基准。AgentBench 涵盖了八个迥异的真实世界环境（参见图~\ref{fig:realworld}，
+其中 5 个由本文首次构建），可分为以下三类接地（grounding）形式：
+\begin{itemize}
+    \item \textbf{代码类（Code）}：操作系统、数据库、知识图谱 \citep{anonymous2023kg}；
+    \item \textbf{游戏类（Game）}：数字卡牌游戏、横向思维谜题、家务整理 \citep{shridhar2020b}；
+    \item \textbf{网页类（Web）}：网页购物 \citep{yao2022}、网页浏览 \citep{deng2023}。
+\end{itemize}
+
+无论新构建或经适应性改造，所有数据集都被精心设计与重新表述，以模拟
+纯文本 LLM 可充当自主智能体的交互式环境。AgentBench 进而系统评估一个 LLM 的
+若干核心能力，包括指令遵循 \citep{ouyang2022}、编程 \citep{chen2021}、知识获取
+\citep{joshi2017,talmor2019}、逻辑推理 \citep{srivastava2023} 与常识接地
+\citep{shridhar2020a} 等，使之成为 LLM 与智能体评估的理想试验场。
+
+此外，本文还开发了一套统一的 LLM 评估工具包，以灵活支持在不同定制智能体
+任务上对各类 LLM 进行评测，进而在 AgentBench 上对 29 个 LLM——涵盖 API 类与
+开源（OSS）模型——进行了 LLM-as-Agent 能力的全面基准评测。
+结果显示，诸如 \code{GPT-4} 等顶级模型具备处理多种真实世界任务的能力，
+预示着构建强大、可持续学习的智能体已具现实可能。然而，我们也观察到顶级模型
+与其 OSS 竞品之间存在显著的性能差距。尽管近年来 OSS LLM 在多个基准
+\citep{li2023,chen2021,cobbe2021} 上取得不俗成绩，但其在挑战性更强的
+AgentBench 任务上的表现仍明显落后。这一事实凸显出仍需付出额外努力以增强
+OSS LLM 的学习能力。
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{table1_placeholder.png}
+    \caption{
+        \textbf{表 1：AgentBench 评测的 29 个 API 类或 OSS LLM}。
+        带 \code{*} 号的模型在计算任务权重后进行评估。
+        本表与原论文表 1 内容完全一致，仅由英文译为中文以方便阅读。
+    }
+    \label{tab:models}
+\end{figure*}
+
+我们对不同环境与 LLM 上智能体任务的失败进行了归因分析，揭示出当前 LLM
+在长期推理、决策与指令遵循方面的能力不足。通过对比不同的 LLM，我们得到如下
+启示：合理的代码训练策略有助于改善 LLM 的智能体能力；在高质量对齐数据（如由
+\code{gpt-4} 生成的数据）上的对齐训练，同样有助于改善 LLM 智能体。综上，
+本文的主要贡献如下：
+\begin{itemize}
+    \item 提出将 LLM 作为智能体加以评估的理念，并推出 AgentBench 这一综合性基准，
+          对评测范式进行标准化。该基准基于真实场景，定义了 3 类共 8 个
+          截然不同的环境，为 LLM 各项能力的全面评估提供了切实可行的试验场；
+    \item 利用 AgentBench 对 29 个 LLM 进行了系统评测，揭示了顶级商用 API 类
+          LLM 与众多规模不超过 70B 的 OSS 模型之间存在的显著性能差距；
+          同时，定量分析了现有 LLM 智能体的失败原因，并指明了可改进的方向，
+          例如提升指令遵循能力、使用更高质量的对齐数据等。此外，我们还发现
+          代码训练是一把双刃剑——它对部分智能体任务有正向作用，却也会对另一些
+          任务造成损害；
+    \item 为方便 LLM-as-Agent 的评测，本文构建了基于服务器—客户端架构的
+          一体化工具包，遵循模块化与可扩展的设计原则。借助 HTTP 协议，
+          研究者可便捷地为任意 LLM 定制模型评估流程。结合配套的数据集与环境，
+          该工具包已面向整个研究社区开源。
+\end{itemize}

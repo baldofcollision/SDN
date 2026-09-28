@@ -1,0 +1,226 @@
+% =====================================================================
+%   附录 E：数字卡牌游戏 (Digital Card Game)
+% =====================================================================
+
+\section{数字卡牌游戏}\label{app:dcg}
+
+\subsection{数据集细节}
+
+\subsubsection*{构造细节}
+
+本文以 Aquawar 框架作为交互系统的基础。第一类交互为动作阶段：模型需选择
+其要执行动作的鱼，然后选取技能的目标。为保证模型操作的有效性，我们对合法
+动作进行检查。第二类交互为猜测阶段：我们向模型提供已知信息，包括鱼的种类
+与技能描述、敌方目标等。我们为测试目的提供了两种朴素策略。游戏流程的
+详细定义与说明如下：
+
+\begin{itemize}
+    \item \textbf{玩家与卡牌}：这是一款双人对战游戏，每队拥有 4 条宠物鱼
+          （即卡牌）。牌池共包含 10 种鱼（详见附录~\ref{app:dcg}~E.2），
+          双方玩家在游戏开始前需各自从牌池中挑选 4 条确定的鱼。
+    \item \textbf{初始状态}：每条鱼拥有 400 点初始生命值、200 点初始攻击力、
+          一项主动技能与一项被动技能。
+    \item \textbf{基本规则}：玩家每回合选择一条存活的鱼，使用其主动技能或
+          普通攻击敌方一条鱼。任何存活鱼的被动技能在满足触发条件时会自动
+          触发。
+    \item \textbf{断言机制}：玩家鱼的种类身份在最初是隐藏的。对手玩家可在
+          每一回合猜测玩家一条鱼的身份；若猜测正确，则该鱼的身份被公开，
+          且玩家所有鱼均会受到伤害。
+    \item \textbf{回合流程}：在一个回合内，该回合的玩家首先断言敌方一条
+          存活且身份未公开的鱼的身份；若断言正确，则敌方所有存活的鱼
+          均受到伤害。随后，该玩家可以命令一条存活的鱼执行一次普通攻击或
+          主动技能。此后，任何满足触发条件的鱼将释放其被动技能。
+    \item \textbf{胜利条件}：游戏结束时，存活鱼数量较多的一方获胜。
+\end{itemize}
+
+为兼顾智能体的参与度与游戏的复杂度，我们设计了两阶段的游戏逻辑：第一阶段
+移除了断言机制，第二阶段则保留断言机制。我们分别在两个阶段上对所有模型
+进行测试，并取两阶段的平均表现作为最终得分。
+
+我们选择两种朴素的玩法策略作为基线：
+\begin{itemize}
+    \item \textbf{策略一}：从所有可选动作空间中简单地随机选择动作。
+    \item \textbf{策略二}：在可能的情况下优先尝试 AOE 攻击，并持续评估能否
+          实现一击必杀；接着尝试使用主动技能，最后退而采用普通攻击。总体
+          上，该策略遵循一定的模式，但未必是最优策略。
+\end{itemize}
+
+\subsubsection*{评测设置}
+
+每次游戏对局中，我们按以下步骤进行评估：
+\begin{enumerate}
+    \item \textbf{初始化}：我们在 Ubuntu 20.04 环境下初始化经过修改的游戏
+          逻辑环境（基于 pybind 编译）以及基线游戏智能体。
+    \item \textbf{交互}：我们根据不同游戏阶段在指令提示中放置规则描述，
+          LLM 智能体在游戏逻辑环境中与基线进行策略性对抗。我们给予 LLM
+          智能体 5 次按正确格式响应的机会；若在该次数内未能输出合法动作，
+          则立即判定其失败。同时，我们鼓励模型以 CoT 形式输出其推理过程。
+    \item \textbf{结果计算}：在交互过程中，我们将记录完整的游戏过程以供
+          对战回放，并计算游戏结果以获得任务的评测指标。
+\end{enumerate}
+
+\subsubsection*{评测指标}
+
+我们采用的评测指标涵盖基本玩法要素，包括获胜回合数（Win Round）、总回合数
+（Total Round）、胜率（Win Rate）、总伤害占总生命值的比例（Damage Rate），
+最终根据以上指标计算综合奖励分数：
+\begin{equation}\label{eq:reward}
+    \text{reward} = 0.7 \times \text{metric}_\text{winrate} + 0.3 \times \text{metric}_\text{damagerate}.
+\end{equation}
+
+\subsection{鱼类属性}
+
+依据游戏规则，本游戏共包含以下 10 种鱼：
+
+\begin{itemize}
+    \item \textbf{Spray（水柱喷射鱼）}
+        \begin{itemize}
+            \item Counter（被动）：当一名队友的生命值低于 30\% 时，对攻击者
+                  造成 30 点伤害。
+            \item AOE（主动）：对其攻击力的 35\% 对所有敌人造成伤害。
+        \end{itemize}
+    \item \textbf{Flame（烈焰鱼）}
+        \begin{itemize}
+            \item Counter（被动）：当一名队友的生命值低于 30\% 时，对攻击者
+                  造成 30 点伤害。
+            \item Infight（主动）：对一名存活的队友造成 75 点伤害，并使自身
+                  攻击力提升 140 点。
+        \end{itemize}
+    \item \textbf{Eel（鳗鱼）}
+        \begin{itemize}
+            \item Deflect（被动）：受到攻击时，将 70\% 的伤害转移给队友，
+                  自身仅承受 30\% 的伤害；在累计承受 200 点伤害后，获得 40 点
+                  攻击力加成。
+            \item AOE（主动）：对其攻击力的 35\% 对所有敌人造成伤害。
+        \end{itemize}
+    \item \textbf{Sunfish（翻车鱼）}
+        \begin{itemize}
+            \item Deflect（被动）：受到攻击时，将 70\% 的伤害转移给队友，
+                  自身仅承受 30\% 的伤害；在累计承受 200 点伤害后，获得 40 点
+                  攻击力加成。
+            \item Infight（主动）：对一名存活的队友造成 75 点伤害，并使自身
+                  攻击力提升 140 点。
+        \end{itemize}
+    \item \textbf{Barracuda（梭鱼）}
+        \begin{itemize}
+            \item Reduce（被动）：每次受到攻击时，有 30\% 的概率完全规避该
+                  伤害。
+            \item Crit（主动）：对一名敌人造成 120 点暴击伤害。
+        \end{itemize}
+    \item \textbf{Mobula（蝠鲼）}
+        \begin{itemize}
+            \item Reduce（被动）：每次受到攻击时，有 30\% 的概率完全规避该
+                  伤害。
+            \item Subtle（主动）：选择一名队友或自身，使其在受到攻击时所受
+                  伤害减少 70\%，并使其攻击力提升 20 点。
+        \end{itemize}
+    \item \textbf{Octopus（章鱼）}
+        \begin{itemize}
+            \item Heal（被动）：当受到攻击且生命值仍大于 0 时，恢复 20 点
+                  生命值。
+            \item Infight（主动）：对一名存活的队友造成 75 点伤害，并使自身
+                  攻击力提升 140 点。
+        \end{itemize}
+    \item \textbf{Whiteshark（白鲨）}
+        \begin{itemize}
+            \item Heal（被动）：当受到攻击且生命值仍大于 0 时，恢复 20 点
+                  生命值。
+            \item Crit（主动）：对生命值最低的敌人造成相当于自身攻击力 120\%
+                  的暴击伤害；若目标生命值低于 160，则暴击伤害提升至 140\%。
+        \end{itemize}
+    \item \textbf{Hammerhead（锤头鲨）}
+        \begin{itemize}
+            \item Explode（被动）：当受到攻击且未死亡时，对攻击来源造成 40
+                  点伤害；当生命值低于 20\% 时，攻击力额外提升 15 点。
+            \item Crit（主动）：对生命值最低的敌人造成相当于自身攻击力 120\%
+                  的暴击伤害；若目标生命值低于 160，则暴击伤害提升至 140\%。
+        \end{itemize}
+\end{itemize}
+
+可以看出，不同宠物鱼的主动与被动技能之间存在重叠。这一设计旨在更好地隐藏
+宠物鱼的身份信息，并增强游戏的策略深度。
+
+\subsection{提示词示例}
+
+我们使用如下格式的提示词来执行动作：
+\begin{quote}\small\ttfamily
+This is a two-player battle game with four pet fish on each team. The
+types of fish may vary.\\
+Each fish has its 400 initial health, 200 attack power, active ability,
+and passive ability. You can choose a live fish to use its active skill or
+normal attack (causing half of attack power as damage) on an enemy fish
+each round. When the conditions are met, the fish's passive ability will
+automatically trigger, regardless of whether it is chosen.\\
+Your fish's identity is initially hidden. The enemy can guess one of your
+fish's identity in each round. If the enemy guesses right, your fish's
+identity is revealed, and each of your fish will get 50 damage.\\
+The victory condition is to have more fish alive at the end of the game.\\
+\\
+The following are the four types of your pet fish: \{\dots\}\\
+The following are the four types of enemy's pet fish: \{\dots\}\\
+\\
+Play the game with me. In each round, you should output your thinking
+process, and return your move with following JSON format:\\
+\verb|{'pick_fish': 'pick an alive fish, you should give the name of the|
+\verb|alive fish', 'action': 'choose from [normal, active]',|
+\verb|'target_position': "target's position, you must choose from [0,3]"}|\\
+\\
+Notice! You must return your move in each round. Otherwise, you will be
+considered defeated.
+\end{quote}
+
+第二阶段的断言提示词与上述类似，但将动作格式替换为对敌方鱼身份的猜测。
+
+\subsection{对战生成}
+
+在本文正文的研究中，我们为公平评测起见，固定了若干预设，使得所有模型均
+使用相同的对战场景进行测试。然而，这些任务的生成实际上可引入一定的
+随机性。对战中的随机性主要体现在以下方面：
+\begin{itemize}
+    \item \textbf{队伍构成}：双方宠物鱼的选择，包括其数量与种类。
+    \item \textbf{属性确定}：双方各宠物鱼的具体属性数值。
+\end{itemize}
+
+我们允许选择不同难度等级以生成随机对战。本节将进一步解释"难度"这一概念的
+运作方式。
+
+\subsubsection*{战斗力（Combat Power）}
+
+为有效评估战斗力，关键是把握其基本原理：在两支队伍的对抗中，战斗力较强
+的一方通常具有更高的获胜概率。
+
+记鱼 $c$ 的生命值为 $\text{HP}_c$，其攻击力（即普通攻击的期望伤害）为
+$\text{ATK}_c$。设想一个简单场景：来自我方队伍的一条鱼 $f$ 与来自敌方队伍的
+一条鱼 $h$ 互相对战，同时对彼此造成伤害。双方能够承受战斗的持续时间分别
+为 $\text{HP}_f / \text{ATK}_h$ 与 $\text{HP}_h / \text{ATK}_f$。
+在此情形下，若 $\text{HP}_f / \text{ATK}_h \ge \text{HP}_h / \text{ATK}_f$，
+即 $\text{HP}_f \cdot \text{ATK}_f \ge \text{HP}_h \cdot \text{ATK}_h$，
+我方队伍更有可能获胜。
+
+因此，对于单鱼队伍，我们将其战斗力定义为 $\text{HP} \cdot \text{ATK}$，这与
+上述判据相符。
+
+考虑由多条鱼组成的队伍 $T$，在排除任何特殊技能的情况下，每一回合需从我方
+队伍中选择一条鱼攻击敌方的一条鱼。由此可将整支队伍视为整体，总生命值为
+所有鱼生命值之和，平均攻击力（在正常情况下，应选择攻击力最高的鱼，但
+考虑到对手通常会优先攻击攻击力最高的鱼以削弱其持续作战能力，我们假设
+所有鱼的攻击频次相当）则被纳入考量。
+
+由此，队伍 $T$ 的战斗力 $\text{Power}(T)$ 定义为：
+\begin{equation}\label{eq:power}
+    \text{Power}(T) = \frac{1}{\#T} \sum_{c \in T} \text{HP}_c \sum_{c \in T} \text{ATK}_c.
+\end{equation}
+
+\subsubsection*{难度：战斗力之比}
+
+对战难度通过对战双方队伍的战斗力之比来量化：
+\begin{equation}\label{eq:rho}
+    \rho(H \mid F) = \frac{\text{Power}(H)}{\text{Power}(F)}.
+\end{equation}
+
+式中，$F$ 代表友方队伍，$H$ 代表敌方队伍。可见，比值 1 表示难度均衡，即
+双方实力对等；进一步地，该难度指标意味着 $\rho(T_1 \mid T_2)$ 个 $T_2$ 队伍
+在实力上等同于 1 个 $T_1$ 队伍。
+
+借助这一框架，研究者能够为评估各种策略的胜率精确设定具体难度等级，从而
+有效衡量其效能。

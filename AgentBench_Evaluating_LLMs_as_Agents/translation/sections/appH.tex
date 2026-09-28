@@ -1,0 +1,97 @@
+% =====================================================================
+%   附录 H：网页购物 (Web Shopping)
+% =====================================================================
+
+\section{网页购物}\label{app:ws}
+
+\subsection{数据集细节}
+
+\subsubsection*{构造细节}
+
+环境向智能体展示网页的文本观测及可选动作。智能体可如同在真实世界中一样
+自由探索网站，并通过可点击的按钮浏览商品。约一百万件商品从 \code{amazon.com}
+爬取，构成网站的数据库。随后，每件商品均被打上反映其自身属性的标签。
+共收集了 12\,087 条人类指令，并将每条指令与目标及期望属性相关联。
+数据集构造细节请参见 \citet{yao2022webshop}。
+
+\subsubsection*{评测设置}
+
+我们采用 12\,087 条指令中的前 500 条作为测试集（沿用
+\citet{yao2022webshop}~官方实现）。每一轮交互可分解为如下步骤：
+\begin{enumerate}
+    \item \textbf{指令下达}：在初始提示之后（提示中包含环境信息以及 LLM
+          应采用的回复格式），我们给出关于期望购买的商品的指令。
+    \item \textbf{交互}：智能体按提示以规定的格式进行响应，包含其思考
+          与拟采取的动作。可选动作分为两类：\code{search} 与 \code{click}，
+          分别对应于现实中的搜索与点击按钮。环境以简化版的网页文本与
+          可用按钮列表作为响应。该过程将反复进行，直至智能体点击
+          \code{buy now} 按钮或超出轮数限制。
+    \item \textbf{奖励计算}：我们采用原论文中的奖励函数作为评测指标。
+          该奖励将期望属性与被购商品实际属性之间的相似度映射为 0 到 1
+          之间的数值。
+\end{enumerate}
+
+\subsubsection*{评测指标}
+
+鉴于给定查询可能对应多个合适的商品，Webshop 采用一种匹配奖励作为评测指标：
+\begin{equation}\label{eq:webshop-reward}
+    \text{Reward} = \frac{|U_{\text{att}} \cap Y_{\text{att}}| + |U_{\text{opt}} \cap Y_{\text{opt}}| + \mathbb{I}[y_{\text{price}} \le u_{\text{price}}]}
+                          {|U_{\text{att}}| + |U_{\text{opt}}| + 1}
+                  \cdot r_{\text{type}},
+\end{equation}
+其中
+\begin{equation}\label{eq:webshop-rtype}
+    r_{\text{type}} = \begin{cases}
+        0,   & \text{若 TextMatch} = 0, \\
+        0.1, & \text{若 TextMatch} < 0.1, \\
+        0.5, & \text{若 TextMatch} \le 0.2\ \text{且 query 不匹配且 category 不匹配}, \\
+        1,   & \text{其它情形}.
+    \end{cases}
+\end{equation}
+式中，$U$ 与 $Y$ 分别表示目标商品与所购商品的属性集；att 与 opt 分别指
+属性与选项；TextMatch 为所购商品标题与目标商品标题之间的代词、名词与专有名词
+匹配度。
+
+\subsection{提示词示例}
+
+我们使用如下格式的提示词：
+\begin{quote}\small\ttfamily
+User:\\
+You are web shopping. I will give you instructions about what to do.
+You have to follow the instructions. Every round I will give you an
+observation and a list of available actions, you have to respond an
+action based on the state and instruction. You can use search action if
+search is available. You can click one of the buttons in clickables.\\
+\\
+An action should be of the following structure:\\
+\code{search[keywords]}\\
+\code{click[value]}\\
+\\
+If the action is not valid, perform nothing. Keywords in search are up
+to you, but the value in click must be a value in the list of available
+actions. Remember that your keywords in search should be carefully
+designed.\\
+\\
+Your response should use the following format:\\
+Thought:\\
+I think \dots\\
+Action:\\
+\code{click[something]}\\
+\\
+User:\\
+Observation: \code{\{observation\}}\\
+\\
+Available Actions: \code{\{available_actions\}}\\
+\end{quote}
+
+该数据集采用 1-shot 示例（详见原论文）。下面是若干用户—智能体交互示例的摘要：
+\begin{itemize}
+    \item 初始 Observation 包含指示文本、可用动作的 JSON；智能体决定
+          \code{search[...]}
+    \item 后续 Observation 给出商品列表；智能体选择目标商品的编号进行
+          \code{click[...]}
+    \item 进入商品详情页后，智能体选择符合需求的规格（如尺寸），再次
+          \code{click[...]}
+    \item 最终智能体通过 \code{click[Buy Now]} 完成购买。
+\end{itemize}
+完整对话示例及对应英文原版提示词请参见原论文附录 H。
