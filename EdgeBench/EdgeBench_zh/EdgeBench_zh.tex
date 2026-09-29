@@ -1,0 +1,160 @@
+% ============================================================
+%  EdgeBench 中文翻译
+%  论文原文: EdgeBench: Unveiling Scaling Laws of Learning from
+%           Real-World Environments (ByteDance Seed, 2026-07-07)
+%  编译命令: xelatex EdgeBench_zh.tex (运行两遍以正确生成目录与引用)
+%  依赖宏包: ctex, amsmath, graphicx, hyperref, booktabs, geometry
+% ============================================================
+
+\documentclass[a4paper,11pt]{article}
+
+% ---------- 中文与字体支持 ----------
+\usepackage[UTF8,fontset=none]{ctex}
+\setCJKmainfont{SimSun}[BoldFont=SimHei,ItalicFont=KaiTi]
+\setCJKsansfont{SimHei}
+\setCJKmonofont{FangSong}
+% 英文字体使用 Latin Modern,公式默认 cm 字体
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+% ---------- 基础数学与符号 ----------
+\usepackage{amsmath,amssymb,amsfonts,amsthm,mathtools}
+\usepackage{bm}
+
+% ---------- 图形与颜色 ----------
+\usepackage{graphicx}
+\usepackage{xcolor}
+\definecolor{linkblue}{RGB}{30,80,160}
+\definecolor{accent}{RGB}{170,40,90}
+
+% ---------- 表格与排版 ----------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{array}
+\usepackage{longtable}
+
+% ---------- 章节与列表 ----------
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+
+% ---------- 页面布局 ----------
+\usepackage[margin=2.2cm]{geometry}
+
+% ---------- 链接与书签 ----------
+\usepackage[colorlinks=true,linkcolor=linkblue,citecolor=linkblue,urlcolor=linkblue,bookmarks=true,bookmarksnumbered=true]{hyperref}
+
+% ---------- 代码与算法 ----------
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+% ---------- 数学定理样式 ----------
+\theoremstyle{definition}
+\newtheorem{definition}{定义}[section]
+\newtheorem{assumption}{假设}[section]
+\newtheorem{lemma}{引理}[section]
+\newtheorem{theorem}{定理}[section]
+\newtheorem{proposition}{命题}[section]
+\newtheorem{corollary}{推论}[section]
+\newtheorem{condition}{条件}[section]
+\renewcommand{\proofname}{证明}
+
+% ---------- 标题与小标题 ----------
+\usepackage{titlesec}
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
+\titlespacing*{\section}{0pt}{1.5ex plus 0.3ex minus 0.2ex}{1.0ex plus 0.2ex}
+\titlespacing*{\subsection}{0pt}{1.0ex plus 0.3ex minus 0.2ex}{0.8ex plus 0.2ex}
+
+% ---------- 图表编号 ----------
+\usepackage{caption}
+\captionsetup{font=small,labelsep=period}
+
+% ---------- 自定义命令 ----------
+\newcommand{\figref}[1]{图~\ref{#1}}
+\newcommand{\tabref}[1]{表~\ref{#1}}
+\newcommand{\secref}[1]{第~\ref{#1}~节}
+\newcommand{\eqrefr}[1]{式~(\ref{#1})}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\diag}{\mathrm{diag}}
+\newcommand{\argmin}{\operatorname{argmin}}
+\newcommand{\argmax}{\operatorname{argmax}}
+
+% ---------- 简化算法伪代码为类 C 风格 ----------
+\floatname{algorithm}{算法}
+\renewcommand{\algorithmicrequire}{\textbf{输入:}}
+\renewcommand{\algorithmicensure}{\textbf{输出:}}
+\renewcommand{\algorithmicif}{\textbf{若}}
+\renewcommand{\algorithmicthen}{\textbf{则}}
+\renewcommand{\algorithmicelse}{\textbf{否则}}
+\renewcommand{\algorithmicfor}{\textbf{对}}
+\renewcommand{\algorithmicwhile}{\textbf{当}}
+\renewcommand{\algorithmicdo}{\textbf{执行}}
+\renewcommand{\algorithmicend}{\textbf{结束}}
+\renewcommand{\algorithmicreturn}{\textbf{返回}}
+
+% ---------- 目录深度 ----------
+\setcounter{tocdepth}{2}
+
+% ============================================================
+\title{
+    \vspace{-2em}
+    \begin{minipage}{\textwidth}
+        \centering
+        {\LARGE\bfseries EdgeBench:揭开真实世界环境下学习的缩放规律}\\[0.5em]
+        {\large ——中文翻译版——}\\[0.5em]
+        {\normalsize EdgeBench: Unveiling Scaling Laws of Learning from Real-World Environments}\\[0.3em]
+        {\small 原文作者: ByteDance Seed\quad 翻译日期: 2026年9月29日}
+    \end{minipage}
+}
+\author{翻译工程:基于 promt\_translation.md 翻译规范}
+\date{原文版本: 2026-07-07}
+% ============================================================
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent\rule{\textwidth}{0.5pt}
+\begin{center}\textbf{摘要(中文译版)}\end{center}
+
+预训练阶段的缩放规律表明,模型能力会随数据量与算力的增加而可预测地提升。然而,智能体部署后从真实世界环境中学习的现象,迄今仍远未被充分理解。本文分析了大语言模型智能体在 \textbf{134} 个真实世界任务上累计约 \textbf{38{,}000} 小时的交互数据,首次以\textbf{对数-S 形(Log-Sigmoid)}这一简洁的函数形式刻画了环境学习的整体性能曲线,并以极高精度拟合——决定系数 $R^2 = 0.998$。跨代际比较显示,智能体的学习速度大约\textbf{每三个月翻一倍}。这一发现源自 \textbf{EdgeBench}:一个包含 134 个超长视野真实世界任务的评测套件,涵盖科学发现、软件工程、组合优化、专业知识工作、形式化数学与交互式游戏。每个任务在丰富、多层次的反馈下支持至少 12 小时的连续运行,且均由领域专家精心构建。本文公开 51 个任务及完整评测框架,以推动智能体如何从真实经验中学习这一研究方向。
+
+\begin{center}\textbf{原文摘要(English Abstract)}\end{center}
+
+\textit{Pretraining scaling laws reveal that model capability improves predictably with data and compute. But learning from real world environments after deployment remains far less understood. Analyzing roughly 38,000 hours of agent interaction with the environment across 134 real world tasks, we find, to the best of our knowledge, the first evidence that overall performance during environment learning follows a log-sigmoid scaling law with remarkably high precision, reaching $R^2 = 0.998$. Across model generations, we also find that agent learning speed roughly doubles every three months. This discovery stems from EdgeBench, a suite of 134 real world tasks with ultra-long horizons, spanning scientific discovery, software engineering, combinatorial optimization, professional knowledge work, formal mathematics, and interactive games. Each task sustains at least 12 hours of continuous agent operation under rich, multilevel feedback, and is built through substantial expert effort. We publicly release 51 tasks and our full evaluation framework to accelerate the study of how agents learn from real world experience.}
+
+\noindent\rule{\textwidth}{0.5pt}
+\end{abstract}
+
+\vspace{1em}
+
+\begin{center}
+\textbf{项目主页:}\url{https://edge-bench.org}\\[0.3em]
+\textbf{通讯作者:} Shu Zhong \quad \texttt{zhongshu@bytedance.com}
+\end{center}
+
+\vspace{1em}
+
+% 原文出版信息
+\noindent\textbf{出版信息}\quad 原文于 \textbf{2026年7月7日} 提交至 arXiv(编号 2607.15651),由 ByteDance Seed 团队发布。
+
+\vspace{2em}
+
+% 论文主体部分
+\input{EdgeBench_body.tex}
+
+% 附录
+\input{EdgeBench_appendix.tex}
+
+% 致谢与参考文献
+\input{EdgeBench_backmatter.tex}
+
+\end{document}

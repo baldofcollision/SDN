@@ -1,0 +1,545 @@
+% ============================================================
+%  EdgeBench 算法补充说明
+%  ——论文核心算法的系统性解读、形式化与代码实现
+% ============================================================
+%  编译命令: xelatex EdgeBench_algo.tex (运行两遍)
+%  依赖: ctex, amsmath, graphicx, hyperref, booktabs, algorithm, algorithmicx
+% ============================================================
+
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[UTF8,fontset=none]{ctex}
+\setCJKmainfont{SimSun}[BoldFont=SimHei,ItalicFont=KaiTi]
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{listings}
+\usepackage{xcolor}
+\lstset{
+    basicstyle=\ttfamily\small,
+    commentstyle=\color{gray},
+    keywordstyle=\color{blue},
+    stringstyle=\color{red!70!black},
+    numberstyle=\tiny\color{gray},
+    numbers=left,
+    numbersep=5pt,
+    breaklines=true,
+    breakatwhitespace=true,
+    language=Python,
+    showstringspaces=false,
+    captionpos=b,
+    frame=single,
+    tabsize=4,
+}
+\usepackage{float}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage[colorlinks=true,linkcolor=blue]{hyperref}
+
+% 中文算法环境
+\floatname{algorithm}{算法}
+\providecommand*{\IfStrEq}{\ifthenelse}
+\usepackage{ifthen}
+
+% 自定义命令
+\def\argmin{\operatorname{argmin}}
+\def\argmax{\operatorname{argmax}}
+\def\Cov{\operatorname{Cov}}
+\def\Var{\operatorname{Var}}
+\def\diag{\operatorname{diag}}
+\def\E{\mathbb{E}}
+\def\R{\mathbb{R}}
+\def\N{\mathbb{N}}
+\def\Prob{\mathbb{P}}
+\newcommand{\secref}[1]{第~\ref{#1}~节}
+\newcommand{\figref}[1]{图~\ref{#1}}
+\newcommand{\tabref}[1]{表~\ref{#1}}
+\newcommand{\eqrefr}[1]{式~(\ref{#1})}
+
+\graphicspath{{../EdgeBench_zh/figures/}}
+
+\begin{document}
+
+\title{
+    \vspace{-1.5em}
+    {\LARGE\textbf{EdgeBench 算法补充说明}}\\[0.5em]
+    {\large 论文核心算法的系统性解读、形式化与代码实现}
+}
+
+\author{基于 EdgeBench 论文 (arXiv:2607.15651) 的算法补充文档}
+\date{2026年9月}
+
+\maketitle
+
+\begin{abstract}
+本文档作为 \textit{EdgeBench: Unveiling Scaling Laws of Learning from Real-World Environments} 的算法补充说明,对论文中涉及的各类算法、统计方法、理论基础与实验设计进行系统性梳理与解读。内容覆盖:(1) 对数-S 形曲线的参数拟合;(2) 任务图上的前沿扩张过程的数学形式化;(3) 加权切割混合与 logistic 动力学;(4) 多任务聚合理论;(5) 评测框架的设计细节;(6) 经验累积实验的对比方法;(7) 引力波案例研究的详细分析;以及(8) 每种算法的 Python 参考实现。本文档旨在为研究者提供可复现的计算支持与可延伸的理论框架。
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{引言:本文档的目标与结构}
+\sectionmark{引言}
+
+本文档对 EdgeBench 论文中的所有算法内容进行系统梳理。EdgeBench 是一篇以实验发现为主、方法论极其丰富的论文,其核心贡献并非提出新的算法,而是\textbf{通过严谨的实验设计和数学建模揭示了一个新规律}(对数-S 形缩放律)。因此,本文档的重点在于:
+
+\begin{enumerate}
+    \item \textbf{对数-S 形曲线拟合}:如何从原始学习轨迹数据中拟合 $S(t) = \frac{S_{\max}}{1 + (t_{\mathrm{mid}}/t)^{\beta}}$?
+    \item \textbf{前沿扩张过程的理论形式化}:附录 D 中的完整数学框架及其假设;
+    \item \textbf{实验方法论}:评测框架、经验对比实验、交错长度消融等的设计细节;
+    \item \textbf{Python 参考实现}:每种算法均提供可运行的参考代码。
+\end{enumerate}
+
+本文档不重复论文已包含的文字翻译,而是\textbf{从算法和计算的角度深度解读论文的方法论内核}。
+
+% ============================================================
+\section{对数-S 形曲线拟合}
+\sectionmark{对数-S 形曲线拟合}
+
+\subsection{问题定义}
+给定一个智能体在 $T$ 个时间点 $\{t_{k}\}_{k=1}^{T}$ 上的\textbf{最佳迄今性能}序列 $\{S_{k}\}_{k=1}^{T}$,其中 $S_{k} = \max_{j \leq k} \text{score}(j)$,我们需要拟合以下三参数模型:
+
+\begin{equation}
+    S(t; S_{\max}, t_{\mathrm{mid}}, \beta) = \frac{S_{\max}}{1 + \bigl(t_{\mathrm{mid}} / t\bigr)^{\beta}}.
+    \tag{ALG-1}
+\end{equation}
+
+参数含义:
+\begin{itemize}
+    \item $S_{\max}$: 可达到的分数上限;
+    \item $t_{\mathrm{mid}}$: 达到 $S_{\max} / 2$ 的时间;
+    \item $\beta$: 对数时间下进度集中的陡峭程度。
+\end{itemize}
+
+\subsection{拟合方法:非线性最小二乘}
+
+我们使用\textbf{非线性最小二乘}来拟合参数:
+\[
+    \min_{S_{\max}, t_{\mathrm{mid}}, \beta} \sum_{k=1}^{T} \bigl[ S_{k} - S(t_{k}; S_{\max}, t_{\mathrm{mid}}, \beta) \bigr]^{2}.
+\]
+
+由于目标函数非凸,我们使用 Levenberg--Marquardt 算法,并以多组初始值避免局部最优。
+
+\subsection{参数初始化策略}
+为了提高收敛的稳健性,我们采用以下初始化策略:
+
+\begin{enumerate}
+    \item $S_{\max}^{(0)} = \max_{k} S_{k}$;
+    \item 在对数时间坐标下,取 $t$ 从 $t_{\min}$ 到 $t_{\max}$ 之间的等分点作为候选 $t_{\mathrm{mid}}$;
+    \item $\beta$ 的初始值设为 $1.0$(对应标准的 logistic 曲线)。
+\end{enumerate}
+
+\subsection{Python 实现}
+\begin{algorithm}[H]
+\caption{对数-S 形曲线拟合}
+\label{alg:log-sigmoid-fit}
+\begin{algorithmic}[1]
+\REQUIRE 时间序列 $t = [t_{1}, \ldots, t_{T}]$, 性能序列 $S = [S_{1}, \ldots, S_{T}]$, 初始候选数 $N_{\mathrm{cand}}$
+\ENSURE 最优参数 $(S_{\max}^{\*}, t_{\mathrm{mid}}^{\*}, \beta^{\*})$ 与拟合 $R^{2}$
+\STATE $S_{\max}^{(0)} \gets \max(S)$
+\STATE $\beta \gets 1.0$
+\STATE 在区间 $[t_{\min}, t_{\max}]$ 上生成 $N_{\mathrm{cand}}$ 个候选 $t_{\mathrm{mid}}$
+\STATE $\mathrm{best\_loss} \gets \infty$
+\FOR{每个候选 $t_{\mathrm{mid}}$}
+    \STATE 用 scipy.optimize.curve\_fit 拟合 $(S_{\max}, \beta)$,初始值为 $(S_{\max}^{(0)}, 1.0)$
+    \STATE 计算残差平方和 $\mathrm{RSS}$
+    \IF{$\mathrm{RSS} < \mathrm{best\_loss}$}
+        \STATE $\mathrm{best\_loss} \gets \mathrm{RSS}$
+        \STATE $(S_{\max}^{\*}, t_{\mathrm{mid}}^{\*}, \beta^{\*}) \gets$ 当前参数
+    \ENDIF
+\ENDFOR
+\STATE 计算 $R^{2} = 1 - \frac{\mathrm{RSS}}{\sum_{k}(S_{k} - \bar{S})^{2}}$
+\RETURN $(S_{\max}^{\*}, t_{\mathrm{mid}}^{\*}, \beta^{\*}, R^{2})$
+\end{algorithmic}
+\end{algorithm}
+
+\lstinputlisting[language=Python,basicstyle=\ttfamily\small]{code/log_sigmoid_fit.py}
+
+上述代码的核心要点:
+\begin{itemize}
+    \item \textbf{非线性最小二乘}:使用 SciPy 的 \texttt{curve\_fit},内部使用 Levenberg--Marquardt;
+    \item \textbf{多起点搜索}:对 $t_{\mathrm{mid}}$ 在合理范围内网格搜索,选取残差最小者;
+    \item \textbf{$R^{2}$ 计算}:$R^{2} = 1 - \mathrm{RSS} / \mathrm{TSS}$,用于评估拟合质量。
+\end{itemize}
+
+\subsection{拟合质量评估}
+论文报告的核心指标为 $R^{2}$(决定系数)。对于 $N$ 个数据点:
+\[
+    R^{2} = 1 - \frac{\sum_{i=1}^{N} (S_{i} - \hat{S}_{i})^{2}}{\sum_{i=1}^{N} (S_{i} - \bar{S})^{2}}.
+\]
+
+在论文中,134 个任务的 12 小时平均轨迹拟合 $R^{2} \geq 0.997$——这一极高的拟合优度是对数-S 形规律成立的\textbf{最核心实验证据}。
+
+% ============================================================
+\section{前沿扩张过程:理论框架}
+\sectionmark{前沿扩张过程:理论框架}
+
+这是 EdgeBench 论文最具原创性的理论贡献。本节将论文附录 D 的完整理论体系转化为\textbf{可操作的算法思维框架}。
+
+\subsection{核心直觉}
+
+想象智能体在一个大型任务上工作时,它的每次成功都在任务空间中"解锁"一块新的区域。这些新解锁的区域又可以帮助它解锁更多区域——就像一个前沿不断扩张的 front。这个过程的数学建模如下:
+
+\begin{enumerate}
+    \item 任务被建模为一个\textbf{潜在图}$G = (E, E_{K})$,其中节点 $i \in E$ 代表一个"得分单元";
+    \item 已解锁的节点 $j$ 对锁定节点 $i$ 的影响强度为 $K_{ij}$;
+    \item 节点 $i$ 在 $u$ 时刻的解锁强度为 $\lambda_{i}(u) = \eta \sum_{j} K_{ij} n_{j}(u)$;
+    \item 分数增长率等于"已解锁侧"向"锁定侧"的加权切割-cutting。
+\end{enumerate}
+
+\subsection{数学形式化}
+
+设归一化分数:
+\[
+    x(u) = \sum_{i \in E} \mu_{i} n_{i}(u), \quad \mu_{i} = \frac{\omega_{i}}{\sum_{j} \omega_{j}}.
+\]
+
+则精确增长率为:
+\[
+    \frac{d}{du}\E[x(u) \mid n(u)] = \eta \underbrace{\sum_{i \in L(u)}\sum_{j \in U(u)} \mu_{i} K_{ij}}_{\text{加权前沿切割 } C(L,U)}.
+\tag{ALG-2}
+\]
+
+关键近似——\textbf{加权切割混合}(Weighted Cut Mixing):假设在聚合层面,
+\[
+    C(L,U) \approx \kappa \cdot \mu(L) \cdot \mu(U) = \kappa \cdot x \cdot (1-x).
+\tag{ALG-3}
+\]
+这意味着前沿扩张速度与"已解锁分数"和"剩余分数"均成正比。
+
+代入即得 logistic 方程:
+\[
+    \frac{dx}{du} = \beta x(1-x), \quad \beta = \eta \kappa.
+\tag{ALG-4}
+\]
+
+由于 $u \approx \log t$(图自相似假设),替换得:
+\[
+    \frac{dx}{d\log t} = \beta x(1-x).
+\tag{ALG-5}
+\]
+
+求解得:
+\[
+    x(t) = \frac{1}{1 + (t_{\mathrm{mid}}/t)^{\beta}}.
+\tag{ALG-6}
+\]
+
+\subsection{图自相似性与对数时间}
+
+\textbf{为何时间坐标是对数的?} 假设任务图的边结构随难度指数增长:
+\[
+    N_{k} \approx c \cdot b^{k}, \quad \text{难度等级 } k \propto \log r.
+\]
+
+则暴露难度尺度 $r$ 所需的累积搜索量为:
+\[
+    V(r) \approx V_{0} e^{h r}, \quad h = \frac{\log b}{\Delta r}.
+\]
+
+若搜索努力与时间成正比($A(t) = \nu t$),则暴露的难度尺度:
+\[
+    r(t) = \frac{1}{h}\log\!\bigl(1 + \frac{h\nu}{V_{0}}t\bigr) \approx \frac{1}{h}\log t + O(1).
+\]
+
+这解释了为什么"对数时间"是自然的坐标——搜索量指数增长,但时间仅线性流逝。
+
+\subsection{多任务聚合定理}
+
+对 $M$ 个任务求平均,在\textbf{切割混合}、\textbf{中点对齐}、\textbf{速度集中}等条件下:
+\[
+    \frac{1}{M}\sum_{b=1}^{M} x_{b}(u) \xrightarrow{P} \frac{1}{1 + e^{-\beta u}}.
+\tag{ALG-7}
+\]
+
+这解释了论文的核心发现:\textbf{对数-S 形是总体层面的涌现规律,而非单一任务的固有特征}。
+
+% ============================================================
+\section{评测框架的设计细节}
+\sectionmark{评测框架的设计细节}
+
+\subsection{双容器架构}
+
+EdgeBench 的评测框架 SForge 采用\textbf{工作容器 + 判官容器}的双容器架构:
+
+\begin{algorithm}[H]
+\caption{EdgeBench 评测循环(高层描述)}
+\label{alg:eval-loop}
+\begin{algorithmic}[1]
+\STATE 初始化工作容器(包含任务材料与本地验证工具)
+\STATE 初始化判官容器(包含隐藏评测资产)
+\STATE $t_{\mathrm{elapsed}} \gets 0$
+\WHILE{$t_{\mathrm{elapsed}} < T_{\max}$ \AND 智能体仍在运行}
+    \STATE 智能体在工作容器中执行操作(编辑、运行测试等)
+    \STATE 智能体将产物提交至判官服务器
+    \STATE 判官服务器将产物复制至判官容器
+    \STATE 判官容器运行隐藏测试,返回结构化反馈
+    \STATE 反馈返回智能体
+    \STATE 自动评测器按固定间隔对工作区进行快照评分
+    \STATE $t_{\mathrm{elapsed}} \gets t_{\mathrm{elapsed}} + \Delta t$
+\ENDWHILE
+\STATE 记录完整的提交历史与轨迹
+\STATE 生成最终报告
+\end{algorithmic}
+\end{algorithm}
+
+关键设计要点:
+
+\begin{itemize}
+    \item \textbf{工作容器不暴露隐藏测试}:防止智能体通过"窥视评测"作弊;
+    \item \textbf{提交门控(Submission Gating)}:权威反馈需通过提交获取,防止信息泄露;
+    \item \textbf{自动评测(Auto-Eval)}:即使智能体不主动提交,也能按固定间隔测量进度;
+    \item \textbf{异步评分}:长时评测任务在后台评分,智能体可继续工作。
+\end{itemize}
+
+\subsection{防止评测作弊的机制}
+
+论文附录 C 详细描述了多种评测作弊模式及缓解措施:
+
+\begin{enumerate}
+    \item \textbf{反馈预言机攻击}:智能体将反馈视为方程,直接求解隐藏目标。缓解:减少或聚合反馈,防止精确还原。
+    \item \textbf{随机上尾优化}:在随机环境中选取方差最大的种子。缓解:使用隐藏多种子集评估。
+    \item \textbf{评测器种子过拟合}:针对固定随机种子过拟合。缓解:使用隐藏多随机种子。
+    \item \textbf{信任边界跨越}:将产物移至免检目录。缓解:完整性检查覆盖所有可写路径。
+    \item \textbf{在线答案查找}:利用公开数据直接检索答案。缓解:禁用相关任务的网络访问。
+\end{enumerate}
+
+% ============================================================
+\section{经验累积对比实验}
+\sectionmark{经验累积对比实验}
+
+论文 \secref{sec:experience} 比较了两种实验条件:
+\begin{itemize}
+    \item \textbf{有经验(W/Experience)}:智能体连续运行 12 小时,保留工作区、产物与反馈历史;
+    \item \textbf{无经验(W/o Experience)}:将 12 小时均分为 6 个 2 小时独立尝试,每次重置状态。
+\end{itemize}
+
+\subsection{曲线估计方法}
+
+对"有经验"条件:直接对 3 次 12 小时运行的 best-so-far 曲线求平均。
+
+对"无经验"条件:设 $n$ 次独立尝试的分数为 $\{u_{i}\}$,在时间 $t = k\tau$ 时,最佳 $k$ 次尝试的期望为:
+\[
+    \hat{u}_{k\tau} = \mathbb{E}_{S}\!\biggl[ \max_{i \in S} u_{i} \biggr],
+\]
+其中 $S$ 从 $n$ 次尝试的大小为 $k$ 子集中均匀采样。这类似于代码生成中的 pass@k 估计。
+
+\begin{algorithm}[H]
+\caption{无经验条件的 Best-of-k 估计}
+\label{alg:pass-at-k}
+\begin{algorithmic}[1]
+\REQUIRE 独立尝试分数序列 $u = [u_{1}, \ldots, u_{n}]$, $k \in \{1, \ldots, n\}$
+\ENSURE $k$ 次独立尝试中最佳者的期望估计 $\hat{u}_{k}$
+\STATE $\mathrm{sum} \gets 0$
+\FOR{所有大小为 $k$ 的子集 $S \subseteq \{1,\ldots,n\}$}
+    \STATE $\mathrm{max\_val} \gets \max_{i \in S} u_{i}$
+    \STATE $\mathrm{sum} \gets \mathrm{sum} + \mathrm{max\_val}$
+\ENDFOR
+\STATE $\hat{u}_{k} \gets \mathrm{sum} / \binom{n}{k}$
+\RETURN $\hat{u}_{k}$
+\end{algorithmic}
+\end{algorithm}
+
+实际实现中使用更高效的动态规划方法。论文报告:在 12 小时时,有经验设置达到 43.0 分,无经验基线为 36.1 分,提升 $+6.9$ 分——证明了智能体确实在\textbf{从累积经验而非重复采样中学习}。
+
+% ============================================================
+\section{上下文长度消融实验}
+\sectionmark{上下文长度消融实验}
+
+论文比较了 200k 上下文窗口与 1M 上下文窗口的 Opus 4.8 在 42 任务子集上的表现。
+
+\begin{algorithm}[H]
+\caption{上下文长度消融实验流程}
+\label{alg:ctx-ablation}
+\begin{algorithmic}[1]
+\REQUIRE 42 个任务,模型 Opus 4.8, 上下文窗口 $C \in \{200\text{k}, 1\text{M}\}$
+\ENSURE 各时间点 $(2h, 6h, 12h)$ 的平均性能与对数-S 形拟合参数
+\FOR{每个上下文窗口 $C$}
+    \FOR{每个任务 $T$}
+        \FOR{$r = 1$ to $3$ (重复次数)}
+            \STATE 运行 Opus 4.8 ($C$ 上下文窗口) 12 小时
+            \STATE 按 $\Delta t = 30\text{min}$ 记录 auto-eval 快照
+            \STATE 记录每次 agent 显式提交及其评分
+        \ENDFOR
+    \ENDFOR
+    \STATE 对每个任务计算 3 次运行的平均 best-so-far 曲线
+    \STATE 跨任务求平均得到基准级学习曲线
+    \STATE 拟合对数-S 形 $(S_{\max}, t_{\mathrm{mid}}, \beta)$
+\ENDFOR
+\STATE 比较 $C=200\text{k}$ 与 $C=1\text{M}$ 的拟合参数与各时间点差距
+\end{algorithmic}
+\end{algorithm}
+
+论文结果:1M 上下文在所有时间点均优于 200k 上下文(差距在 $+4.4$ 至 $+5.8$ 分之间),且两条轨迹遵循相同的对数-S 形形式——证明更长的上下文即使在有外部工作区文件支持的情况下仍提供稳定优势。
+
+% ============================================================
+\section{引力波案例研究:详细阶段分解}
+\sectionmark{引力波案例研究:详细阶段分解}
+
+论文第 5.4 节对引力波重构任务进行了详细的轨迹分析。以下是对该案例的\textbf{算法化解读}。
+
+\subsection{任务描述}
+
+从 LIGO 干涉仪应变数据重构引力波信号。目标由 5 个组件构成:
+\begin{itemize}
+    \item H1 时序波形 (权重 0.15)
+    \item L1 时序波形 (权重 0.15)
+    \item H1 时频谱 (权重 0.20)
+    \item L1 时频谱 (权重 0.20)
+    \item 速度/分离曲线 (权重 0.30)
+\end{itemize}
+
+总分为权重加权之和(满分 100)。
+
+\subsection{轨迹阶段分解}
+
+\begin{algorithm}[H]
+\caption{引力波案例轨迹阶段分析}
+\label{alg:gw-analysis}
+\begin{algorithmic}[1]
+\REQUIRE 224 次 agent 提交 + 23 次 auto-eval 的评分历史
+\ENSURE 关键阶段及其性能提升量化
+\STATE 初始化阶段列表 $\mathcal{P} = []$
+\STATE 找到首次有效提交 $S_{\mathrm{init}} = 42.8$
+\STATE $S_{\mathrm{prev}} \gets S_{\mathrm{init}}$
+\STATE 在所有提交中,标记分数提升 $\geq 0.1$pp 的提交为"有效更新"
+\STATE 识别有效更新之间的最长间隔作为阶段边界
+\STATE $\mathcal{P} \gets [(0\text{h}, 42.8\text{--}47.1, \text{流水线建立})]$
+\STATE $\mathcal{P} \gets \mathcal{P} + [(1\text{h--}4\text{h}, 52.3, \text{信号定位})]$
+\STATE $\mathcal{P} \gets \mathcal{P} + [(4\text{h--}5\text{h}, 59.7, \text{源动力学突破})]$
+\STATE $\mathcal{P} \gets \mathcal{P} + [(5\text{h--}11.5\text{h}, 66.9, \text{H1 波形精修})]$
+\STATE $\mathcal{P} \gets \mathcal{P} + [(11.5\text{h--}12\text{h}, 67.0, \text{最终整合})]$
+\RETURN $\mathcal{P}$, 最终分数 $67.0$, 各阶段性能提升向量
+\end{algorithmic}
+\end{algorithm}
+
+关键洞察:
+\begin{enumerate}
+    \item \textbf{稀疏但结构化}:224 次提交中仅 27 次产生有意义的分数提升(>0.1pp);
+    \item \textbf{阶段性突破}:最大跳跃(+25pp)来自源动力学组件(第 4-5 小时);
+    \item \textbf{反馈驱动的方向调整}:每次反馈都使智能体搜索方向发生实质变化;
+    \item \textbf{保留核心,修复剩余}:最终阶段智能体保留已验证的源模型,仅修复 H1 波形中的残差。
+\end{enumerate}
+
+% ============================================================
+\section{多候选 S 形曲线的比较方法}
+\sectionmark{多候选 S 形曲线的比较方法}
+
+论文比较了五种 S 形曲线模型以证明"对数-S 形是最佳选择"。各模型形式如下:
+
+\[
+\begin{aligned}
+\text{对数-S 形:} & \quad S(t) = \frac{S_{\max}}{1 + (t_{\mathrm{mid}}/t)^{\beta}} \\[3pt]
+\text{对数-Probit:} & \quad S(t) = S_{\max}\,\Phi\!\left(\frac{\ln t - \mu}{\sigma}\right) \\[3pt]
+\text{对数-Gompertz:} & \quad S(t) = S_{\max}\,\exp\!\bigl[-\exp\{-c(\ln t - x_{0})\}\bigr] \\[3pt]
+\text{Weibull CDF:} & \quad S(t) = S_{\max}\!\bigl(1 - e^{-(t/\lambda)^{\beta}}\bigr) \\[3pt]
+\text{对数-线性(基线):} & \quad S(t) = a + b\ln t
+\end{aligned}
+\tag{ALG-8}
+\]
+
+评估指标为 RMSE(均方根误差,单位:性能点):
+\[
+    \mathrm{RMSE} = \sqrt{\frac{1}{N}\sum_{i=1}^{N} (S_{i} - \hat{S}_{i})^{2}}.
+\tag{ALG-9}
+\]
+
+论文结果(表 1):
+\[
+\begin{array}{lc}
+\toprule
+\textbf{模型} & \textbf{RMSE} \\
+\midrule
+\text{对数-S 形} & \mathbf{0.390} \\
+\text{对数-Probit} & 0.398 \\
+\text{对数-Gompertz} & 0.402 \\
+\text{Weibull CDF} & 0.404 \\
+\text{对数-线性(基线)} & 0.717 \\
+\bottomrule
+\end{array}
+\tag{ALG-10}
+\]
+
+对数-S 形不仅 RMSE 最低,且\textbf{具有最清晰的机制解释}:$x(1-x)$ 因子意味着进度与"已解锁分数"和"剩余分数"均成正比——这正是前沿扩张过程的数学体现。
+
+% ============================================================
+\section{学习速度的量化与趋势分析}
+\sectionmark{学习速度的量化与趋势分析}
+
+论文第 4 节研究了智能体学习速度随模型代际的演变。
+
+\subsection{学习速度定义}
+
+在 18 任务固定子集上:
+\[
+    v_{\mathrm{learn}} = \frac{1}{18}\sum_{T=1}^{18}\bigl[\mathrm{score}_{T}(2\text{h}) - \mathrm{score}_{T}(0\text{h})\bigr].
+\tag{ALG-11}
+\]
+
+\subsection{趋势拟合}
+
+对前沿模型(每个发布日的前两名)的 $v_{\mathrm{learn}}$ 进行对数-线性回归:
+\[
+    \log v = \alpha + \beta \cdot (\text{发布日期}).
+\tag{ALG-12}
+\]
+
+论文结果:$\beta \approx 0.23$ (以月为单位),对应约每三个月翻一倍($2^{0.23 \times 3} \approx 1.97$)。拟合 $R^{2}$ 与置信区间通过 Bootstrap 方法计算。
+
+% ============================================================
+\section{完整参考代码库}
+\sectionmark{完整参考代码库}
+
+以下是论文中所有关键算法的 Python 参考实现。
+
+\lstinputlisting[language=Python,basicstyle=\ttfamily\small]{code/edgebench_core.py}
+
+上述代码包含:
+\begin{enumerate}
+    \item \texttt{LogSigmoidFitter}:完整的对数-S 形拟合器,含多起点网格搜索;
+    \item \texttt{FrontierProcess}:前沿扩张过程的离散事件模拟器;
+    \item \texttt{BenchmarkAggregator}:多任务聚合模拟,展示对数-S 形涌现;
+    \item \texttt{PassAtKEstimator}:无经验条件的 best-of-k 估计器;
+    \item \texttt{LearningSpeedTracker}:跨模型代际的学习速度追踪。
+\end{enumerate}
+
+% ============================================================
+\section{总结:算法的系统性价值}
+\sectionmark{总结}
+
+EdgeBench 的核心价值在于它\textbf{揭示了一个新的、可量化的规律},而非提出新的算法。其算法贡献可归纳为:
+
+\begin{enumerate}
+    \item \textbf{实验方法论创新}:日级长视野评测框架、双容器隔离、auto-eval + 手动提交双轨测量;
+    \item \textbf{理论建模贡献}:将环境学习形式化为任务图上的前沿扩张过程,提供了对数-S 形规律的机制性解释;
+    \item \textbf{统计分析范式}:多任务聚合下涌现规律的研究范式——这改变了我们理解"学习"这一现象的视角;
+    \item \textbf{实验发现量化}:学习速度每三个月翻倍的发现具有直接的工程意义。
+\end{enumerate}
+
+本文档希望为后续研究提供:(1) 可复现的计算工具;(2) 可延伸的理论框架;以及(3) 可借鉴的实验设计范式。
+
+\vfill
+\begin{thebibliography}{99}
+\addcontentsline{toc}{section}{参考文献}
+
+\item EdgeBench 论文:ByteDance Seed, \textit{EdgeBench: Unveiling Scaling Laws of Learning from Real-World Environments}, arXiv:2607.15651, 2026.
+
+\item Kaplan et al., \textit{Scaling Laws for Neural Language Models}, arXiv:2001.08361, 2020.
+
+\item Hoffmann et al., \textit{Training Compute-Optimal Large Language Models}, arXiv:2203.15556, 2022.
+
+\item Berkson, \textit{Application of the Logistic Function to Bio-assay}, \textit{JASA}, 39(227):357--365, 1944.
+
+\item Bak, Tang \& Wiesenfeld, \textit{Self-organized Criticality}, \textit{PRL}, 59(4):381--384, 1987.
+
+\item Weibull, \textit{A Statistical Distribution Function of Wide Applicability}, \textit{JAM}, 18(3):293--297, 1951.
+
+\end{thebibliography}
+
+\end{document}
